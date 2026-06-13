@@ -1,0 +1,1164 @@
+ ▐▛███▜▌   Claude Code v2.1.111
+▝▜█████▛▘  Opus 4.7 (1M context) · Claude Max
+  ▘▘ ▝▝    ~\CodingFiles\Keel\Keel-Project
+
+❯ /clear                                                                        
+  ⎿  (no content)
+
+❯ I'm Elliot, co-founder of Keel. Karthik went through a strategic reasoning    
+  exercise about Keel's market positioning and wrote it up here:                
+                                                                                
+  https://docs.google.com/document/d/1Y6AJSAsSWvCDfc2z3UCbHUyxZQS8Ig5Qxe-Xk--4M 
+  K4/edit                                                                       
+                                                                                
+  Read it in full before we start — including Appendix B: Competitor Field      
+  Guide at the end. You'll need Appendix B as reference material throughout.    
+                                                                                
+  I don't want a summary. I want you to walk me through the same reasoning path 
+   Karthik took, as a Socratic dialogue. For each of the 10 stages in the doc:  
+                                                                                
+  1. Before revealing what Karthik concluded, ask me the open-ended question    
+  the stage was answering. (e.g., Stage 4: "Who do you think Keel actually      
+  competes with?")                                                              
+  2. Let me attempt an answer. Push back if my reasoning is weak. Don't let me  
+  off the hook with shallow responses.                                          
+  3. Then reveal the research and reasoning that led to the conclusion in the   
+  doc, and explain why that answer matters for the next stage.                  
+  4. Before moving on, ask me whether the conclusion changes anything about how 
+   I'd describe Keel to a prospect, an investor, or a new hire.                 
+                                                                                
+  Critical: handle competitor names as they come up, don't expect me to         
+  pre-read them.                                                                
+                                                                                
+  Any time you mention a company I might not know (Coupa, Zip, Pactum, Lio,     
+  Globality, GEP, Genpact, WNS, Accenture BPO, Oro Labs, Levelpath, Avendra,    
+  Foodbuy, LogicSource, Tipalti, Bill.com, etc. — the full list is in Appendix  
+  B):                                                                           
+                                                                                
+  • Stop and give me a 2–3 sentence explainer: what they do, who they serve,    
+  roughly how big they are, and why they matter (or don't) for Keel's           
+  positioning.                                                                  
+  • Then ask me: "Is that enough context, or do you want to go deeper on them   
+  before I continue?" — and wait for my answer.                                 
+  • If I say deeper, pull more detail from Appendix B and the relevant stage.   
+  If I say continue, move on.                                                   
+                                                                                
+  Don't batch competitor explanations into a single info-dump. Do them one at a 
+   time, woven into the flow of whichever stage brought them up. The point is   
+  that each competitor only becomes relevant at a specific moment in the        
+  reasoning — introduce them in context, not in advance.                        
+                                                                                
+  Other behaviors I want from you:                                              
+  • Don't rush through stages. I'd rather spend 20 minutes on Stages 7–9 (the   
+  GPO insight and the TAM reframe) than skim all ten.                           
+  • If I propose something that contradicts what Karthik concluded, don't just  
+  defer to the doc. Pressure-test my reasoning independently. If I'm right and  
+  he was wrong, say so.                                                         
+  • Use the source material in the doc's Appendix A. If I ask for evidence,     
+  cite the specific research (McKinsey, HFTP, Sequoia, Deloitte, etc.).         
+  • At the end, ask me one question: "What would you change about the current   
+  positioning based on what you know about our prospects that Karthik doesn't?" 
+                                                                                
+  The goal isn't for me to memorize Karthik's conclusions — it's for me to      
+  internalize the shape of the reasoning so that when discovery interviews      
+  produce new information, I can respond to it the same way he would.           
+                                                                                
+  Start with Stage 1.                                                           
+
+  Called google (ctrl+o to expand)
+
+● Got it — read the full doc including Appendix B. Let's start.
+
+  ---
+  Stage 1
+
+  Here's the opening question Karthik was wrestling with:
+
+  When someone asks "what market is Keel in?" — what's the honest answer?
+
+  Don't give me the elevator pitch. I want the category. If a VC, a journalist,
+  and a prospect each asked you, would you give them the same answer? And more
+  importantly — is the category you'd name the one that actually describes where
+   Keel's revenue comes from?
+
+  Take a shot.
+
+❯ its a services company                                                        
+
+● Okay — "services company" gets you closer than "AI company" or "procurement
+  software," but it's still doing a lot of work. Push on it.
+
+  A law firm is a services company. So is Accenture. So is the landscaper who
+  mows my lawn. Those three compete in wildly different markets, have wildly
+  different economics, and get valued on wildly different multiples.
+
+  So two follow-ups:
+
+  1. What kind of services company? What's the work being sold — and who used to
+   do that work before Keel showed up?
+  2. Why does the "services" framing matter strategically? If you tell a VC
+  "we're a services company," most of them mentally file you under "low-margin,
+  doesn't scale, not fundable." What's the counter?
+
+  Sharpen it.
+
+❯ we sell services company that helps optimize procurement spending for mid     
+  size hotel management companies                                               
+
+● Okay — that's a description of the offering, not an answer to the market
+  question. You described what Keel does. I asked what market it plays in.
+
+  Here's why the distinction matters: a VC hearing "services company that helps
+  hotels with procurement" will nod politely and pass. It sounds like a
+  consulting shop. Low multiple, doesn't scale, human-bottlenecked.
+
+  So let me reframe the question more sharply:
+
+  What's the budget Keel is going after? Not the customer, not the category —
+  the dollar bucket inside that customer's P&L that Keel's invoice gets paid
+  from.
+
+  Because the whole strategic framing hinges on this. If Keel is fighting for
+  the same budget as Coupa (SaaS procurement software), it's one game. If Keel
+  is fighting for the same budget as Accenture's offshore procurement team, it's
+   a completely different game — different pricing, different sales motion,
+  different competitors, different TAM.
+
+  Which budget is Keel's invoice coming out of?
+
+❯ the budget for consulting and optimization                                    
+
+● Good — that's the right instinct. Let me sharpen it with the framing Karthik
+  landed on.
+
+  The research: Sequoia published a framework in early 2026 called Services: The
+   New Software. Core thesis: for every $1 a business spends on software, it
+  spends $6 on services. The next defensible AI companies won't sell tools —
+  they'll sell the work itself, using AI to execute what professional services
+  firms used to do.
+
+  That splits the world into two buckets:
+
+  ┌──────────────┬────────────────────────┬─────────────────────────────────┐
+  │              │        Copilot         │            Autopilot            │
+  ├──────────────┼────────────────────────┼─────────────────────────────────┤
+  │ Sells        │ A tool to help a       │ The outcome the professional    │
+  │              │ professional           │ was hired for                   │
+  ├──────────────┼────────────────────────┼─────────────────────────────────┤
+  │ Budget       │ Tool budget            │ Work budget (~$50–500K/mo)      │
+  │              │ (~$5–20K/mo)           │                                 │
+  ├──────────────┼────────────────────────┼─────────────────────────────────┤
+  │ Customer     │ Uses software          │ Receives a result               │
+  │ action       │                        │                                 │
+  └──────────────┴────────────────────────┴─────────────────────────────────┘
+
+  Keel is autopilot. Customer sends AP data, Keel returns savings. They never
+  see the agents.
+
+  Why this matters for everything downstream: Keel isn't competing for the
+  procurement software line item. It's competing for the consulting / BPO / 
+  internal-procurement-staff line item — which is 5–10x larger per customer.
+  That's the unlock. It's also why the TAM math in Stage 3 will look different
+  than a typical SaaS TAM.
+
+  The key realization: Keel doesn't compete with software companies. It competes
+   with the services budget.
+
+  ---
+  Before I move to Stage 2 — does this change anything about how you'd describe 
+  Keel to a prospect, an investor, or a new hire?
+
+  Specifically: when a hotel GM asks "what are you selling me?" — does the
+  autopilot framing change your answer vs. what you'd have said this morning?
+
+❯ we sell optimization on mid sized hotel companies' procurement spend as a     
+  service                                                                       
+
+● That's the same sentence as before with "as a service" tacked on. The
+  autopilot framing didn't actually land in the pitch.
+
+  Here's the gap. Your sentence works equally well whether Keel is:
+  - A SaaS tool a GM logs into (copilot)
+  - A consulting firm that writes a report (one-time service)
+  - An AI-native firm that runs the function continuously (autopilot)
+
+  A prospect hearing "we optimize your procurement spend as a service" will
+  default-assume option 1 or 2, because that's what exists in their world. They
+  won't imagine option 3 unless you force it into the sentence.
+
+  Try again with two constraints:
+
+  1. It has to make clear the customer receives a result, not software. (No
+  "platform," no "tool," no "dashboard.")
+  2. It has to make clear this replaces work they'd otherwise pay a human to do.
+   Otherwise you're competing with $200/month spend-analysis tools, not the
+  $50–500K/year procurement staffing line.
+
+  One sentence. Force both into it.
+
+※ recap: We're walking through Karthik's 10-stage strategy doc as a Socratic dialogue so you internalize the reasoning. We're on Stage 1, sharpening how you describe Keel.
+
+  Next: rewrite Keel's one-sentence pitch so it signals autopilot (a result delivered, replacing human work) not software or consulting.
+
+❯ im not sure. help me out here                                                 
+
+● Fair. Here's the shape — two variants, different audiences:
+
+  To a prospect (hotel GM):
+  "You send us your AP data every month. We find the savings, consolidate
+  vendors, renegotiate where we can, and send you a report with the money we
+  saved. You don't hire anyone, you don't log into anything, you don't manage
+  us. We take a cut of what we save."
+
+  To a VC:
+  "Keel is the AI-native replacement for offshore procurement BPOs, starting
+  with mid-market hospitality. We bill against the services budget, not the
+  software budget — so the ACV is 5–10x a SaaS procurement tool, and the
+  customer never has to build a procurement team to buy from us."
+
+  Notice what's doing the work in both:
+
+  - Verbs of receiving, not using ("send us / we send you" vs. "log in").
+  - Named replacement target (the BPO, the procurement hire) — so there's no
+  ambiguity about which budget.
+  - Pricing model that only makes sense for autopilot (% of savings — you can't
+  charge a SaaS tool this way).
+
+  The sentence you had before — "optimization as a service" — could describe a
+  Coupa reseller. These two can't.
+
+  ---
+  Stage 2
+
+  Now the next question Karthik had to answer:
+
+  Why hospitality? Of all the verticals Keel could have picked as a beachhead — 
+  restaurants, healthcare, manufacturing, multi-location retail, logistics — why
+   mid-market hotel management companies?
+
+  Don't just say "we know people there." Warm intros matter, but they're not a
+  strategic reason. I want the market-structural reasons this vertical is the
+  right wedge. What about hospitality makes it better than the alternatives?
+
+  Take a shot.
+
+❯ they have the lowest digital adoption                                         
+
+● Right answer, but you gave me one bullet when Karthik had a stack of five or
+  six that compounded into the decision. Lowest digital adoption alone isn't
+  enough — plenty of industries are digitally behind (construction, agriculture,
+   local government) and none of them are obviously the right beachhead for
+  Keel.
+
+  So push further: what makes hospitality uniquely attractive as a beachhead, 
+  not just generally underserved?
+
+  Give me 2–3 more factors. Think about: who the buyer is, what the operational
+  pain feels like day-to-day, whether there's a competitive threat already
+  circling, and what makes mid-market specifically (vs. big chains or
+  independents) the right slice.
+
+❯ theres a large amount of fragmented data, and theres also not a dedicated     
+  procurement team                                                              
+
+● Now you're building a real case. Let me tag what you just said:
+
+  - Fragmented data = the operational pain is quantifiable and severe (more
+  vendors + more SKUs = more leakage = more savings to find).
+  - No dedicated procurement team = no gatekeeper, no incumbent tool to
+  displace, and the buyer is someone you can actually get a meeting with (a GM
+  or COO, not a CPO behind three layers of procurement staff).
+
+  Two more you're missing that matter strategically. Can you name either:
+
+  1. Something about the competitive landscape in this specific vertical — who's
+   not here that should be?
+  2. Something about the multi-property structure that makes the economics work
+  for Keel specifically?
+
+  Take a shot at one or both.
+
+❯ theres no AI native services. multi property structure allows for             
+  consolidation even with just one customer                                     
+
+● Both exactly right. Let me lock them in and then stack the full case Karthik
+  built.
+
+  "No AI-native competitors" → the vertical is literally uncontested at the
+  intersection of (high pain + accessible buyer + large spend). No funded
+  startup has planted a flag here. The competition is Excel.
+
+  "Multi-property consolidation within a single customer" → this is the economic
+   unlock. A 20-property hotel group is one sales cycle but 20 locations of 
+  overlapping vendor spend. You get M&A-style consolidation savings without
+  needing cross-customer aggregation to start. You can deliver a win on day one
+  with one logo.
+
+  Here's Karthik's full stack from Stage 2 — all the reasons compounded:
+
+  - Lowest digital adoption of 22 industries surveyed (McKinsey / HBR)
+  - GMs spend up to 40% of their week on procurement-adjacent work (Construct
+  Capital / Folio research) — this is the "is the pain acute?" proof point
+  - 2,000+ suppliers and 500,000+ SKUs per property (HFTP) — the fragmented-data
+   point, quantified
+  - Current tools: spreadsheets, phone, paper checks, email — no incumbent to
+  displace
+  - No funded AI startup owns the niche — uncontested
+  - Accessible decision-makers (GMs/COOs, not CPOs) — short sales cycle, no
+  procurement gatekeeper
+  - Multi-property groups multiply the opportunity — consolidation wins within a
+   single account
+  - Warm access — Elliot's Purdue network into White Lodging and Indiana
+  operators gives a starting path
+
+  Why this matters for the next stage: every one of these factors feeds into the
+   TAM math. The "40% of a GM's week" stat tells you the work is real and
+  expensive. The "2,000 suppliers / 500K SKUs" tells you there's genuinely
+  inefficiency to extract. The "no AI-native competitor" tells you the land-grab
+   window is open right now.
+
+  ---
+  Before Stage 3 — does this change how you'd describe Keel?
+
+  Specifically: when you pitch a Dora or a Kamba, how many of these eight
+  factors do you weave into the conversation vs. keep as internal reasoning?
+  Because some of these are why we're doing this (internal) and some are why 
+  it's urgent for you (external). Which are which, in your head?
+
+❯ we don't make an industry that already has a low digital adoption learn a new 
+   stack or tool. we let GMs outsource the work that takes up 40% of their      
+  time, without learning a new tool. With just one management company, we can   
+  already begin implementing consolidation                                      
+
+● That's a good translation. You've taken three of the eight internal reasons
+  and reframed them as prospect-facing value:
+
+  1. "We don't make you learn a new tool" — addresses low digital adoption
+  without making the GM feel stupid about it
+  2. "We take the 40% of your week" — names the pain in their language, in their
+   units
+  3. "Day-one consolidation within your own portfolio" — proves value on one
+  logo, before any cross-customer data effect kicks in
+
+  The others (no competitors, warm access, accessible buyer) stay internal —
+  those are why we're doing this reasons, not why you should buy reasons. You'd
+  bore a GM with them.
+
+  ---
+  Stage 3
+
+  Next question Karthik had to answer:
+
+  Okay — hospitality is the beachhead. Now put a number on it. How big is the 
+  opportunity?
+
+  Don't just guess. Walk me through how you'd build the TAM from the top down,
+  given what we just said. Start with US hotel industry revenue and work your
+  way down to "how much fee revenue could Keel theoretically capture?"
+
+  I want to see your math, even if the numbers are rough. And at the end, tell
+  me: is the number you land on a venture-scale business, a great lifestyle
+  business, or something in between?
+
+❯ skip all the TAM stuff for now                                                
+
+● Skipping Stage 3 (and we'll skip Stage 9 when we hit it — it's the TAM
+  reframe).
+
+  ---
+  Stage 4
+
+  This is where the strategic framing gets sharp. The question:
+
+  Who do you think Keel actually competes with?
+
+  When a prospect asks "aren't you just like [X]?" — who is X? Name as many as
+  you can, and more importantly, group them. Because the answer isn't a list,
+  it's a taxonomy. Some of the companies people will name are real threats. Most
+   are not. The work is figuring out which is which.
+
+  Take a shot. Who's on the field?
+
+❯ i have no idea who the competitive landscape is.                              
+● Fair — that's the honest answer, and it's exactly the reason this stage
+  matters. Let me walk you through it, but I'll keep making you do the thinking.
+
+  Before I name any companies, think structurally. If Keel is selling "AI-native
+   procurement outsourcing for mid-market hotels," what are the categories of 
+  things a prospect could confuse us with? Don't name companies yet — just
+  categories.
+
+  I'll seed you with one: "SaaS procurement software" (e.g., tools a procurement
+   team logs into). That's one bucket.
+
+  What are 2–3 other buckets a prospect might put us in? Think about every kind
+  of entity that touches a hotel's procurement dollars today.
+
+❯ SaaS procurement software, outsourced procurement agencies, traditional       
+  consulting firms                                                              
+
+● Three strong buckets. You're missing one that's specific to hospitality — and
+  it's the one that'll come up most often in discovery calls, because most of
+  your prospects are probably already in it.
+
+  Hint: it's not a firm that does the procurement work for hotels. It's an
+  entity hotels join to get better pricing on stuff they still buy themselves.
+
+  What is it?
+
+❯ dont know what its called. like a group maye                                  
+
+● Right instinct — you're describing a Group Purchasing Organization (GPO).
+
+  GPO in plain English: A buying cooperative. Hotels (or restaurants, hospitals,
+   universities) join one to get pre-negotiated rates on pre-approved vendors.
+  The GPO doesn't do any procurement work for the hotel — it just hands them a
+  catalog of "here are the vendors we've negotiated with, and here's your
+  discounted rate if you buy from them." The GPO makes money by taking a cut of
+  transactions flowing through their network.
+
+  The two giants in hospitality are Avendra and Foodbuy — we'll go deep on them
+  in Stage 8, because understanding GPOs is the single most important insight in
+   the whole doc. For now, just hold the bucket in your head.
+
+  So you've now got the full taxonomy of things prospects might confuse Keel
+  with:
+
+  1. SaaS procurement software (Coupa, Zip, Precoro, Levelpath)
+  2. Procurement BPO firms (Accenture, GEP, WNS, Genpact, IBM)
+  3. Traditional consulting (McKinsey, Deloitte, Bain)
+  4. GPOs (Avendra, Foodbuy, Buyers Edge)
+
+  Plus a fifth bucket Karthik added that's worth naming: Enterprise AI 
+  procurement startups — the venture-funded firms building what Keel is
+  building, but for Fortune 500 (Pactum, Lio, Globality, Oro Labs). Relevant
+  because a VC will ask "aren't you just Pactum for hotels?"
+
+  ---
+  Now the real Stage 4 question: of these five buckets, which ones are actually 
+  Keel's competitors, and which ones are noise?
+
+  Take a shot. For each bucket, say "real competitor" or "not a real competitor"
+   and give a one-sentence reason.
+
+❯ 1. is not a competitor, because we dont sell software.                        
+  2. is a competitor, because they handle all procurement                       
+  3. is a competitor, because they handle procurement optimization              
+  4. is a competitor, because they optimize procurement for stuff with          
+  discounts                                                                     
+
+● Good on 1 and 2. But sharpen 1, push back on 3, and 4 is where I'm going to
+  pressure-test hard.
+
+  1. SaaS — correct, but your reason is shallow. "We don't sell software" is
+  true, but it's not the strategic reason they're not competitors. The real
+  reason is buyer mismatch. Coupa and Zip require a procurement team to use the
+  software. Mid-market hotels don't have one. So even if Keel sold software, it
+  still wouldn't compete with Coupa — Coupa's buyer doesn't exist in our market.
+   Different reason, same conclusion, but the sharper framing matters for how
+  you talk to VCs.
+
+  3. Consulting — push back. Are McKinsey and Deloitte really competitors for a
+  $3K/month engagement with a 20-property hotel group? McKinsey's minimum
+  project size is ~$500K–$1.25M, delivered as a one-time engagement, to Fortune
+  500 clients. They cannot serve Keel's target customer. They're not competitors
+   — they're source material (Keel literally cites their research). Same
+  buyer-mismatch problem as SaaS.
+
+  4. GPOs — this is the big one, and you've got it wrong. This is so important
+  Karthik dedicated an entire stage to it (Stage 8). I'll save the full reveal
+  for then, but here's the preview: GPOs are not competitors. They're 
+  complements. Avendra negotiates F&B pricing for hotels. They do not touch
+  local maintenance vendors, FF&E, landscaping, HVAC, or any of the 40–60% of
+  hotel spend that sits outside their coverage. Keel's pitch to a GPO member is
+  "your GPO handles the big stuff, we handle everything else." If you frame GPOs
+   as competitors in a discovery call, you'll lose the prospect instantly —
+  because they'll say "well, we already have Avendra, so we're fine."
+
+  And you skipped bucket 5 — Enterprise AI procurement startups. Competitor or
+  not?
+
+  Before you answer — quick explainer since you may not know them.
+
+  Pactum: AI agent that autonomously negotiates procurement contracts with
+  suppliers. Raised $100M+ Series C in June 2025. Customers: Walmart, Honeywell,
+   Maersk. Fortune 500 only.
+
+  Enough context on Pactum, or want to go deeper?
+
+❯ since fortune 500 only, they dont really compete the same.                    
+
+● Exactly right. Same structural logic as SaaS and consulting — buyer mismatch.
+  Pactum, Lio ($33M Series A, Andreessen-led, "AI procurement workforce" for
+  Global 2000), Globality ($356M total raised, Fortune 500 strategic sourcing),
+  Oro Labs ($160M Series C, Coca-Cola/Pfizer customers) — all of them are
+  fighting for the same Fortune 500 buyer. They have million-dollar-plus ACVs
+  and enterprise sales cycles. They literally can't profitably sell to a
+  20-property hotel group. The mid-market hospitality niche is invisible to
+  them.
+
+  So the full Stage 4 conclusion:
+
+  ┌────────────────────────┬──────────────────┬─────────────────────────────┐
+  │         Bucket         │ Real competitor? │             Why             │
+  ├────────────────────────┼──────────────────┼─────────────────────────────┤
+  │ SaaS procurement       │ No               │ Their buyer doesn't exist   │
+  │ (Coupa, Zip)           │                  │ in our market               │
+  ├────────────────────────┼──────────────────┼─────────────────────────────┤
+  │ Procurement BPOs       │ Yes — the only   │ Same buyer, same budget,    │
+  │ (Accenture, GEP, WNS)  │ real competitor  │ same "outsource this        │
+  │                        │                  │ function" decision          │
+  ├────────────────────────┼──────────────────┼─────────────────────────────┤
+  │ Consulting (McKinsey,  │ No               │ Minimum project size 100x   │
+  │ Deloitte)              │                  │ our ACV; wrong customer     │
+  ├────────────────────────┼──────────────────┼─────────────────────────────┤
+  │ GPOs (Avendra,         │                  │ Cover different spend       │
+  │ Foodbuy)               │ No — complements │ categories; we pitch        │
+  │                        │                  │ alongside them              │
+  ├────────────────────────┼──────────────────┼─────────────────────────────┤
+  │ Enterprise AI startups │                  │ Fortune 500 only;           │
+  │  (Pactum, Lio,         │ No               │ mid-market is invisible to  │
+  │ Globality)             │                  │ them                        │
+  └────────────────────────┴──────────────────┴─────────────────────────────┘
+
+  The only real competitor is Bucket 2 — Procurement BPOs.
+
+  Now let me make sure you know who's in that bucket, because these are the
+  firms Keel is actually replacing. Quick explainer on the two most important
+  ones:
+
+  GEP: Pure-play procurement services firm (not a side practice like Accenture).
+   Has an AI platform called GEP SMART. End-to-end source-to-pay outsourcing.
+  Enterprise only. ~$50K–$500K+/year minimums. Headcount-heavy offshore delivery
+   model.
+
+  Genpact: Spun out of GE in 2005, now independent. Procurement BPO practice
+  powered by their "Cora AI" platform. Same offshore-staffing model, same
+  Fortune 500 target, same minimum deal sizes.
+
+  Enough context on GEP and Genpact, or want to go deeper on either?
+
+❯ nice                                                                          
+
+● Continuing.
+
+  The critical structural point in Stage 4 — the reason BPOs are Keel's real
+  competitor but also the reason Keel can beat them:
+
+  BPOs are structurally blocked from becoming AI-native.
+
+  Their revenue model IS their staffing. Accenture sells you 12 offshore
+  analysts at $X per FTE or $Y per invoice processed. If Accenture builds AI
+  agents that do the same work for a fraction of the cost, they cannibalize
+  their own P&L. A public company cannot tell shareholders "we're shrinking our
+  highest-margin service line to offer it cheaper."
+
+  So they keep using AI to augment their offshore teams (make them more
+  productive, charge the same rate) — not to replace the model with
+  outcome-based pricing. That's the gap an AI-native entrant walks into.
+
+  The Deloitte 2025 Global CPO Survey hammered the weaknesses:
+
+  ┌─────────────────────────────────────┬───────────────────────────────────┐
+  │            BPO Weakness             │           Keel's Answer           │
+  ├─────────────────────────────────────┼───────────────────────────────────┤
+  │ Pay for hours, not outcomes         │ % of documented savings           │
+  ├─────────────────────────────────────┼───────────────────────────────────┤
+  │ 79% of CPOs say BPOs drive zero     │ AI-native by design               │
+  │ innovation                          │                                   │
+  ├─────────────────────────────────────┼───────────────────────────────────┤
+  │ Timezone / communication gaps       │ Async, single point of contact    │
+  ├─────────────────────────────────────┼───────────────────────────────────┤
+  │ Hidden onboarding costs (months)    │ CSV in, report out — zero         │
+  │                                     │ implementation                    │
+  ├─────────────────────────────────────┼───────────────────────────────────┤
+  │ $50K+/year minimums                 │ $2–5K/month entry point           │
+  └─────────────────────────────────────┴───────────────────────────────────┘
+
+  This is why Stage 4's conclusion matters: Keel isn't "procurement software + 
+  AI." It's "the BPO model, repriced for mid-market, using agents instead of 
+  offshore humans." That sentence is the pitch to a VC. It maps cleanly onto the
+   Sequoia Services framework from Stage 1.
+
+  ---
+  Before Stage 6 (we're skipping 5 — it's TAM-heavy) — does this change how 
+  you'd describe Keel to a prospect, an investor, or a new hire?
+
+  Specifically: if a prospect says "how is this different from what Accenture 
+  would do for us?" — do you have a crisp one-sentence answer now? Try it.
+
+❯ we are ai native, which means we sell outcomes, not hours. traditional        
+  procurement outsourcing makes you pay extra because you pay for how much work 
+   they do, not how much you save.                                              
+
+● Clean answer. Two structural differentiators in one sentence: AI-native
+  delivery, outcome pricing. That's the VC-facing version.
+
+  One sharpening: for a prospect (a hotel GM or COO), the Accenture comparison
+  is abstract — they've never talked to Accenture, and Accenture wouldn't return
+   their call. So the prospect-facing version of the same answer is:
+
+  "Hiring a procurement analyst costs you $100–150K/year loaded, takes 6 months 
+  to onboard, and you only get one person. For a fraction of that we give you 
+  the whole function, running continuously, and you only pay when we save you 
+  money."
+
+  Same structural argument, reframed to the comparison they actually have in
+  their head (hiring vs. not hiring) instead of the one they don't (Accenture
+  vs. Keel).
+
+  ---
+  Stage 6 (skipping the TAM stage)
+
+  Now the self-critique Karthik ran on his own pitch. The question:
+
+  What's the gap between what Keel's pitch implies and what Keel actually 
+  delivers on Day 1?
+
+  Because this is the place founders trip. You sell the vision; you deliver the
+  MVP; the gap is where churn happens.
+
+  Think about it this way: if a hotel group signs a contract tomorrow expecting
+  the full vision ("you are our procurement team"), and what they get in month 1
+   is what Keel can actually deliver in month 1 — is there a mismatch? If so,
+  what is it, and how do you close it?
+
+  Take a shot.
+
+❯ yeah theres a mismatch. for now, all we are offering is procurement           
+  optimization and vendor consolidation support                                 
+
+● Right — but name the mismatch precisely, because that's what determines
+  whether customers churn.
+
+  If a GM signs up expecting "Keel is our procurement team now," what do they
+  still have to do themselves in month 1 that they might have assumed Keel would
+   handle?
+
+  List the things that stay on their plate. Then we can look at the pitch and
+  see what's lying.
+
+❯ they still have to do the procurement itself, and the calls and buying        
+
+● Right. Here's Karthik's Stage 6 framing, cleanly:
+
+  ┌────────────────────────────┬────────────────────────────────────────────┐
+  │       Pitch implies        │               Day 1 reality                │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ "We are your procurement   │ Monthly spend analysis report              │
+  │ team"                      │                                            │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ "You don't need to hire    │ Customer still processes POs, pays         │
+  │ procurement"               │ invoices, manages vendor calls             │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ "We replace BPOs"          │ We deliver spend analytics                 │
+  └────────────────────────────┴────────────────────────────────────────────┘
+
+  The problem with this gap:
+
+  - If the customer signs expecting "outsource my procurement" and gets a spend
+  report → they churn in month 3.
+  - If the pitch shrinks to match reality ("we sell spend analysis") → Keel is
+  competing with $50–200/month tools. You're back in the tool budget, not the
+  work budget. Everything Stage 1 unlocked collapses.
+
+  So there are two bad options and one good one.
+
+  Karthik's answer: start with vendor consolidation from Day 1, not just
+  analysis. Here's why the distinction matters:
+
+  - Analysis = "here's a report showing you spend too much." Customer has to act
+   on it. You've handed them homework.
+  - Consolidation = "we've identified the 5 redundant vendors across your 15
+  properties, here's the one consolidated agreement, sign here." Keel captures
+  the savings, not just surfaces them.
+
+  Consolidation is what justifies outcome pricing — you can't charge 20% of
+  savings if the customer had to do the work to capture the savings.
+  Consolidation is also something mid-market hotels can't easily do themselves
+  (each property has its own vendor relationships, nobody has authority across
+  all of them).
+
+  And the spend analysis becomes a free pre-sale funnel — you do it gratis to
+  win the deal, then sell the consolidation + ongoing management.
+
+  One sentence for the Day 1 offering: "We analyze your spend for free, then we 
+  manage vendor consolidation across your properties for a cut of what we save."
+
+  ---
+  Before Stage 7 — does this change how you'd describe Keel?
+
+  Specifically: what would you stop saying in a discovery call based on this?
+  The gap Karthik named is mostly a gap in the pitch — what phrase or claim are
+  you currently using that would set up a month-3 churn?
+
+❯ we dont just analyze and point out where te business can improve, we actually 
+   do the vendor consolidation for you to save money                            
+
+● That's what you'd keep saying. I asked what you'd stop saying — because the
+  whole point of Stage 6 is that the current pitch overclaims, and the overclaim
+   is what creates month-3 churn.
+
+  Which of these phrases — if any of them are in your current discovery script —
+   should you cut, and why?
+
+  - "We're your procurement team."
+  - "You don't need to hire procurement."
+  - "Outsource your procurement to us."
+  - "We replace firms like Accenture."
+
+  Pick the ones that are landmines and tell me why.
+
+❯ we dont do procurement. we simply assist with optimizing vendors via          
+  consolidation after doing AP analysis                                         
+
+● Now you've overcorrected. You swung from overclaim to underclaim.
+
+  "We simply assist with optimizing vendors via consolidation after doing AP
+  analysis" puts Keel right back in the tool-budget zone that Stage 1 spent the
+  whole argument trying to escape. "Simply assist" is copilot language. A BPO
+  doesn't "assist." A consultant doesn't "assist." They own an outcome.
+
+  The tightrope is:
+
+  - Overclaim ("we are your procurement team") → month-3 churn, because you
+  haven't delivered what they expected.
+  - Underclaim ("we simply assist with vendor analysis") → wrong budget, because
+   "assisting" fits the $50–200/month spend-tool line item, not the $3–5K/month
+  services line item.
+
+  The right framing owns a specific outcome end-to-end while being honest about
+  scope:
+
+  "We don't process your invoices or pay your vendors — your AP team still does 
+  that. What we own is vendor strategy: identifying duplicate and overpriced 
+  vendors across your properties, consolidating them, negotiating better terms, 
+  and tracking the savings month over month. That's our outcome. As we earn your
+   trust, we take more of the procurement function off your plate."
+
+  Two moves that matter:
+
+  1. Name what you're not doing explicitly (AP processing, invoice payment) — so
+   there's no expectation gap.
+  2. Name what you are doing as an owned outcome, not as assistance.
+
+  The landmine phrases from the list I gave you — all four — would set up
+  month-3 churn. The fix isn't to shrink to "we assist." It's to scope the 
+  outcome precisely and signal that scope grows over time.
+
+  This is the shape of services selling. Consulting firms do this constantly:
+  "Phase 1 is spend diagnostic. Phase 2 is category sourcing. Phase 3 is managed
+   services." Each phase is an owned outcome, and the engagement deepens.
+
+  ---
+  Stage 7
+
+  Quick one. Karthik's pressure-test on his own pitch:
+
+  Is vendor consolidation actually a pain hotel operators feel — or is Keel 
+  inventing a problem?
+
+  If you called a hotel GM tomorrow and said "you've got too many vendors, we
+  can consolidate them," would they nod or would they look at you blankly?
+
+  What's your instinct, and why?
+
+❯ no clue                                                                       
+
+● Honest answer. And actually the right answer — because this is exactly the gap
+   discovery interviews are designed to close. You don't know yet.
+
+  But here's the thing: before you spend time interviewing, you want to check
+  whether the pain is named in industry press, because if it isn't, you might be
+   inventing a problem that doesn't exist.
+
+  Karthik checked. It is named. Specifically:
+
+  HFTP's Top 7 Pain Points in Hospitality Procurement lists, in order:
+
+  1. Supplier management (#1)
+  2. Dark purchasing (a.k.a. maverick spend — buying outside defined processes)
+  3. Siloed and fragmented procurement software
+
+  Plus supporting industry quotes:
+
+  - "Supplier sprawl across departments means too many vendors are providing the
+   same service to different teams."
+  - "Companies may pay multiple vendors for essentially the same goods or 
+  services."
+  - "Vendor contracts scattered across properties, reducing negotiating power."
+  - Post-M&A specifically: "Misaligned vendor contracts and operational 
+  redundancies."
+
+  So the problem is real, named, and written about by the industry itself. Not
+  invented by Keel.
+
+  But here's the important caveat — and this is where discovery interviews
+  matter: named in industry press ≠ acute for any specific operator. Something
+  can be a known problem that nobody feels urgently enough to pay to solve.
+  That's the "keep-me-up-at-night vs. annoying but tolerable" question that
+  shows up in Stage 10's validation list.
+
+  So the Stage 7 answer is: we know the category of pain exists. We don't yet
+  know if it's acute enough to buy. That's what Dora, Kamba, and the Indiana
+  groups are going to tell us.
+
+  ---
+  No "does this change anything" question here — it's a confirmation stage, not
+  a reframe stage. Moving on.
+
+  Stage 8 — this is the most important insight in the entire doc. Ready?
+
+  The question:
+
+  You know hotel operators have a vendor sprawl problem. But before you get 
+  excited, there's a massive entity already sitting in hospitality procurement 
+  that might already solve it. What is it, and does its existence kill Keel's 
+  wedge or make it bigger?
+
+  (You already know the answer to "what is it" — we talked about it in Stage 4.
+  The question is whether it's a threat or a gift.)
+
+  Take a shot.
+
+❯ GPO                                                                           
+
+● Right. Now the real work.
+
+  Think about it from the naive-threat angle first. If GPOs already exist —
+  Avendra has $14B in buying power across 8,500+ hospitality customers, Foodbuy
+  has $27–35B across 80,000 member locations — doesn't that mean vendor
+  consolidation is already solved for mid-market hotels? They join a GPO, they
+  get pre-negotiated pricing, done.
+
+  On that framing, Keel is showing up late to a party that already happened.
+
+  So make the case against that. Why does vendor sprawl still exist at
+  mid-market hotels even though GPOs have been around for decades and cover most
+   of the industry? Give me 2–3 reasons.
+
+  If you can't name them, say so and I'll walk you through.
+
+❯ no idea                                                                       
+● Fine — this is the insight you need to internalize, so I'll walk through it
+  and then you tell me which one surprised you most.
+
+  Five reasons vendor sprawl persists at mid-market hotels despite GPOs:
+
+  1. Maverick spend is massive. ~20% of indirect procurement flows through
+  off-contract buying. Only the best-run orgs hit 90%+ GPO compliance — most
+  don't. That means 1 in 5 dollars goes to vendors nobody negotiated with. GPOs
+  see this in their own data and can't stop it — the GPO has no authority over
+  what the individual property buys.
+
+  2. GPOs only cover the "easy" categories. Avendra and Foodbuy are great at F&B
+   and branded consumables — toilet paper, bed linens, bulk chicken, coffee,
+  cleaning supplies. But they don't cover:
+
+  - Local maintenance vendors (the HVAC guy, the elevator service contract)
+  - FF&E (furniture, fixtures, equipment)
+  - Specialty / brand-differentiating items
+  - Most services (landscaping, janitorial, IT, local contractors, waste
+  removal)
+  - One-off purchases (replacement parts, emergency buys)
+
+  That's 40–60% of total hotel spend sitting outside GPO coverage entirely.
+  That's Keel's playground.
+
+  3. GPO rules actually create off-contract premiums. GPO contracts prohibit the
+   negotiated vendor from offering cheaper pricing to non-GPO buyers, which
+  sounds like it protects members. But when a property needs a niche product
+  that isn't in the GPO catalog, they either (a) buy off-contract at full retail
+   or (b) settle for a substitute they don't really want. The GPO structure
+  itself generates leakage.
+
+  4. The five-stakeholder decision problem. In hospitality, purchasing authority
+   is split across: owners, management companies, brand/flag (Marriott, Hilton,
+  IHG), GPO, and individual property GMs. The same category often gets bought
+  through three different channels depending on who decided. Fragmentation is
+  baked into the industry structure — not a bug, a feature.
+
+  5. GPOs favor scale, and mid-market loses. Big chains (Marriott with 8,000
+  properties) negotiate their own GPO-beating rates directly. Independents are
+  too small to care. Mid-market (10–50 properties) is in the worst position —
+  big enough to join a GPO, too small to negotiate favorable tiers within it.
+  They get the baseline GPO rate and no leverage.
+
+  ---
+  The conclusion that reframes everything:
+
+  Keel is not competing with GPOs. Keel is filling the gap around them.
+
+  The sharpened pitch: "Your GPO handles the big stuff. We handle everything 
+  else — the maverick spend, the local vendors, the categories nobody's watching
+   — and we do it across all your properties at once."
+
+  Why this positioning is bulletproof in discovery calls:
+
+  - ✅ Validates what the customer has already done (their GPO membership wasn't
+   a mistake)
+  - ✅ Names a pain they recognize (maverick spend, local vendor sprawl)
+  - ✅ Positions Keel in the gap, not in competition with an entity they already
+   pay
+  - ✅ Is defensible against the #1 objection you will hear: "we already have 
+  Avendra" — your answer is "great, that's exactly why we work"
+
+  This insight also quietly makes the TAM bigger, not smaller. When Karthik
+  reran the numbers with this framing, the addressable pool went from 100% of
+  hotel procurement spend (~$67.5B) to 50% of it (non-GPO + maverick, ~$33.75B)
+  — but the capture rate jumped because you're no longer in head-to-head
+  competition with entrenched players. That's why Stage 9 reframes TAM upward.
+  (We're skipping the math, but the shape of it matters: GPOs shrink your
+  contestable pool while simultaneously making your pitch easier to sell in the
+  pool that remains.)
+
+  ---
+  Before Stage 10 — does this change how you'd describe Keel?
+
+  Specifically: the next time a Kamba or Dora says "we already have a GPO, we're
+   all set on procurement," what exactly do you say back? Draft the response in
+  one or two sentences.
+
+✻ Brewed for 33s
+
+❯ how do you consolidate with one off spend and repairs and furniture, etc.     
+
+● Great question — and it's exactly the operational reality question a skeptical
+   GM will throw at you in month 2 of discovery. Don't hand-wave it.
+
+  The trick is that you don't consolidate purchases — you consolidate vendors 
+  and contracts. There are three different plays depending on the category:
+
+  1. Recurring services that feel "local" but aren't truly property-specific.
+  This is the biggest bucket and the easiest win. Landscaping, janitorial, pest
+  control, waste removal, HVAC service contracts, uniform/linen service, window
+  cleaning, elevator maintenance, IT/telecom.
+
+  A 15-property group in Indiana probably has 15 different landscapers, 12
+  different pest control contracts, and a handful of HVAC service providers.
+  None of that is strategic — it's just historical (each GM hired whoever was
+  local when the property opened). Keel runs one regional RFP, picks one vendor
+  willing to service all 15 at a 15–25% discount, signs one master services
+  agreement. Each property still gets the service; there's just one vendor, one
+  contract, one rate.
+
+  2. FF&E (furniture, fixtures, equipment) — bundle refresh cycles across the 
+  portfolio.
+  Hotels do periodic refreshes — Property A renovates 50 rooms this quarter,
+  Property B refreshes the restaurant next quarter, Property C replaces 30
+  mattresses. Individually these are one-offs. Across the portfolio they're a
+  purchasing pipeline. Keel runs one RFP bundling 12 months of forward FF&E
+  spend across all properties. Vendors bid harder on a $2M pipeline than on a
+  single $150K order.
+
+  Even without bundling, Keel maintains a pre-vetted FF&E vendor list with
+  negotiated rates based on the cumulative cross-customer volume — so the next
+  one-off purchase at any property already has 10–15% baked in.
+
+  3. True one-offs and emergency repairs — you consolidate the vendor list, not 
+  the purchase.
+  You're right that you can't pre-bundle a burst pipe at 2 AM. But what you can
+  do: establish an approved-vendor list with pre-negotiated hourly rates and
+  parts markups. When the property needs an emergency plumber, they call the
+  Keel-approved regional plumbing firm that already has an MSA with
+  pre-negotiated rates — instead of calling whoever's first on Google at triple
+  the price.
+
+  Plus anomaly detection on the backend: if Property A, B, and C all buy the
+  same HVAC part three times at three different prices in a quarter, that's a
+  flag — probably the same supply chain issue, and worth a group RFP.
+
+  ---
+  The short version (this is what you'd say to a GM):
+
+  "We don't consolidate individual purchases. We consolidate your vendor roster.
+   Instead of 15 different landscapers across your properties, you get one with 
+  better rates. Instead of every GM calling whoever they know when something 
+  breaks, you have a pre-negotiated vendor list so the emergency call already 
+  has a 20% discount baked in. The furniture refresh for Property A gets bundled
+   with Property B's restaurant redo — same vendor, one RFP, better pricing. You
+   don't change how you buy. We change who you buy from and at what rate."
+
+  This is also why the data moat compounds: every category Keel consolidates for
+   Customer 1 gives better starting leverage when pitching the same RFP bundle
+  for Customers 2–5 in the same region.
+
+  ---
+  Does that make operational sense? If it does, I still want your answer to the
+  earlier question — when a Kamba or Dora says "we already have a GPO, we're all
+   set on procurement," what's your one- or two-sentence comeback?
+
+✻ Sautéed for 36s
+
+❯ your GPO doesnt cover everything, we cover all the local feeling vendors that 
+   can actually be negotiated down                                              
+
+● Good shape. Two sharpenings to make it land harder in a real conversation:
+
+  1. Validate before you counter. Leading with "your GPO doesn't cover
+  everything" sounds like you're correcting them. Better: "Yeah, your GPO is 
+  great for F&B and the branded stuff — that's where it should be." Now you've
+  signaled you understand their world. Only then name the gap.
+
+  2. Be concrete about what you cover. "Local feeling vendors that can actually
+  be negotiated down" is fuzzy. A GM won't picture anything specific. Name 3–4
+  categories they'll instantly recognize as their pain.
+
+  Combined:
+
+  "Your GPO is dialed in on F&B and branded consumables — that's exactly what it
+   should do. What it doesn't touch is your landscapers, your HVAC service 
+  contracts, your janitorial, your FF&E refreshes, and your emergency repair 
+  spend. That's usually 40–60% of your total purchasing, and nobody's managing 
+  it across all your properties. That's what we do."
+
+  Notice the structure: validate → name the gap with specifics → size the gap
+  (40–60% stat) → state the outcome. That's a template you can reuse for any "we
+   already have X" objection.
+
+  ---
+  Stage 10 — skipping 9 since it's TAM math. Stage 10 is the synthesis.
+
+  The question Karthik landed on:
+
+  After all of this reasoning, what's the one-sentence definition of Keel? And 
+  just as important — what are the four things Keel is not that prospects and 
+  investors will repeatedly try to frame us as?
+
+  Take a shot at both. One sentence for what Keel is. Then name the four things
+  Keel is not, and the reason for each.
+
+❯ Keel is a service that consolidates the vendors a mid market hotel management 
+   company uses, and delivers it as an outcome. our product is saving these     
+  companies money, of which we take a cut as payment                            
+                                                                                
+  Keel is not a BPO, because we dont bill hourly and depend on service staff    
+  Keel is not a GPO, because we dont touch F&B and traditionally consolidated   
+  vendors                                                                       
+  Keel is not a SaaS product, because we dont sell to procurement teams         
+
+● Good definition on the core outcome. But I want to push back hard on one of
+  your "not" claims, and you missed a fourth.
+
+  The one-sentence definition — directionally right, two things missing:
+
+  1. "AI-native" — this is the word that makes the entire pitch fundable.
+  Without it, you sound like a scrappy consulting shop. With it, VCs hear
+  "software margins on services revenue." Karthik's version leads with it for a
+  reason.
+  2. "Starting with hospitality" — the one-sentence has to telegraph the
+  multi-vertical thesis. If you cap the definition at hospitality, you cap the
+  investment thesis at ~$90M SAM. Every investor will ask "is that it?" within
+  90 seconds.
+
+  Karthik's version: "Keel is the AI-native procurement outsourcing firm for 
+  mid-market companies, starting with the vendor consolidation and spend 
+  management that GPOs don't cover, beginning in mid-market hospitality."
+
+  It does four things in one sentence: (1) names the category — procurement
+  outsourcing, not SaaS; (2) names the differentiator — AI-native; (3) names the
+   wedge — GPO-adjacent consolidation; (4) names the beachhead without capping
+  the ceiling.
+
+  ---
+  Now the "what Keel is not" list. Pushing back on #1.
+
+  You said: "Keel is not a BPO, because we don't bill hourly and depend on 
+  service staff."
+
+  This is wrong — or more precisely, the framing is wrong. Keel is a BPO. It's
+  the AI-native mid-market replacement for traditional offshore BPOs. If you
+  tell a VC "we're not a BPO," they'll file you under SaaS and evaluate you on
+  SaaS multiples and SaaS competitors. The whole Stage 1 / Sequoia Services
+  thesis breaks.
+
+  The correct version: "Keel is not a traditional offshore BPO like Accenture or
+   GEP — we're their AI-native mid-market replacement. Same budget line, same 
+  buyer decision, different delivery model."
+
+  This is a subtle but load-bearing distinction. You want to claim the BPO 
+  category, not reject it — because the BPO category is where the work budget
+  lives, and the work budget is what Stage 1 was fighting to unlock. You're just
+   claiming you're the new kind of BPO.
+
+  #2 GPO — correct reasoning. Complements, not competitors. Good.
+
+  #3 SaaS — correct, but sharpen the reason. The reason isn't just "we don't
+  sell to procurement teams" — it's that our customers don't have procurement 
+  teams to sell to. Buyer mismatch is the structural reason, not product
+  delivery.
+
+  #4 — you missed one. Karthik named four things Keel is not, and you only named
+   three. Which category are you forgetting?
+
+  Hint: it's the category that shows up every time you cite McKinsey or Deloitte
+   research.
+
+❯ we are not enterprise AI that sells to fortune 500 companies                  
+
+● Valid category to distinguish from — Pactum, Lio, Globality are definitely not
+   Keel — but that's not the one I was fishing for, and it's not the one on
+  Karthik's list of four.
+
+  The hint was "the category that shows up every time you cite McKinsey or 
+  Deloitte research." That's enterprise consulting — McKinsey, Deloitte, Bain,
+  BCG.
+
+  Karthik flagged this one explicitly because it's a framing trap. Some
+  prospects (especially ones who've done previous strategic projects) will try
+  to pattern-match Keel as "like McKinsey but cheaper." That framing is
+  dangerous because:
+
+  - McKinsey is a one-time engagement ($500K–$1.25M per project). Keel is
+  ongoing managed services. If a prospect files you under "consulting," they'll
+  expect a project SOW with a start and end date — not a monthly retainer.
+  - McKinsey sells strategic recommendations; the client executes. Keel owns the
+   execution. If you're framed as consulting, you're accidentally opting back
+  into the "here's a report, you do the work" failure mode from Stage 6.
+
+  So the full list of four things Keel is not:
+
+  ┌─────────────────┬────────────────────────────────┬──────────────────────┐
+  │    Not this     │           Territory            │   Why it's a trap    │
+  ├─────────────────┼────────────────────────────────┼──────────────────────┤
+  │ Not SaaS        │ Coupa, Zip, Levelpath          │ Wrong buyer, wrong   │
+  │                 │                                │ budget               │
+  ├─────────────────┼────────────────────────────────┼──────────────────────┤
+  │ Not a GPO       │ Avendra, Foodbuy               │ Complements us, not  │
+  │                 │                                │ competes             │
+  ├─────────────────┼────────────────────────────────┼──────────────────────┤
+  │ Not enterprise  │ McKinsey, Deloitte             │ One-time project,    │
+  │ consulting      │                                │ wrong delivery shape │
+  ├─────────────────┼────────────────────────────────┼──────────────────────┤
+  │ Not a generic   │ Accenture, GEP — but we are    │ Claim the category,  │
+  │ offshore BPO    │ their AI-native mid-market     │ reject the model     │
+  │                 │ replacement                    │                      │
+  └─────────────────┴────────────────────────────────┴──────────────────────┘
+
+  Your answer (enterprise AI for F500) is a real 5th category worth keeping in
+  your head for VC conversations — "we're not Pactum for hotels, we're the
+  AI-native replacement for the BPOs Pactum's customers also use" — but it's not
+   one of the four core "not that" frames for prospects.
+
+  ---
+  The four validation questions from the end of Stage 10, which are the live
+  work right now:
+
+  1. Pricing tolerance — Will a 20-property hotel group pay $125–300K/year?
+  2. Savings repeatability — Industry cites 10–15%; first POC proves the actual
+  number.
+  3. Scope expansion — Does managed scope realistically grow from ~30% → 60%+
+  over 2–3 years?
+  4. Acuity of pain — Keep-you-up-at-night urgent, or annoying-but-tolerable?
+
+  All four get answered by the Indiana discovery interviews.
+
+  ---
+  Final question, the one Karthik explicitly asked me to put to you at the end:
+
+  What would you change about the current positioning based on what you know 
+  about our prospects that Karthik doesn't?
+
+  You've been closer to the Dora / Kamba / Indiana operators than Karthik has.
+  What's the friction he hasn't seen, or the framing that feels off to you once
+  it touches real people?
