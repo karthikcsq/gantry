@@ -6,6 +6,8 @@ const saveButton = document.querySelector("#save-button");
 const lintButton = document.querySelector("#lint-button");
 const gateLabelEl = document.querySelector("#gate-label");
 const gateFillEl = document.querySelector("#gate-fill");
+const overviewEl = document.querySelector("#overview");
+const overviewViewportEl = document.querySelector("#overview-viewport");
 
 let model = null;
 let slug = new URLSearchParams(location.search).get("slug") ?? "";
@@ -32,6 +34,16 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     save();
   }
+});
+
+window.addEventListener("scroll", updateOverviewViewport, { passive: true });
+window.addEventListener("resize", buildOverview);
+overviewEl.addEventListener("click", (event) => {
+  // Click on empty rail jumps the viewport to that fraction of the document.
+  const rect = overviewEl.getBoundingClientRect();
+  const fraction = (event.clientY - rect.top) / rect.height;
+  const docHeight = document.documentElement.scrollHeight;
+  window.scrollTo({ top: fraction * docHeight - window.innerHeight / 2, behavior: "smooth" });
 });
 
 async function openSlug(nextSlug) {
@@ -107,7 +119,54 @@ function render() {
   renderGate();
   // Re-measure once elements have their real laid-out width, so long lines
   // wrap to their true height instead of being clipped from a 0-width measure.
-  requestAnimationFrame(() => bufferEl.querySelectorAll("textarea").forEach(autosize));
+  requestAnimationFrame(() => {
+    bufferEl.querySelectorAll("textarea").forEach(autosize);
+    buildOverview();
+  });
+}
+
+// Build the right-side overview rail: a marker per gate (colored by effective
+// status) and a faint tick per step, positioned by their place in the
+// document. Only shown when the document is tall enough to scroll.
+function buildOverview() {
+  overviewEl.querySelectorAll(".ov-step, .ov-gate").forEach((node) => node.remove());
+
+  const docHeight = document.documentElement.scrollHeight;
+  const scrollable = docHeight > window.innerHeight + 8;
+  overviewEl.hidden = !scrollable || !model;
+  if (overviewEl.hidden) return;
+
+  const railHeight = overviewEl.clientHeight;
+  const place = (el, className) => {
+    const y = el.getBoundingClientRect().top + window.scrollY;
+    const marker = document.createElement("div");
+    marker.className = className;
+    marker.style.top = `${Math.round((y / docHeight) * railHeight)}px`;
+    return marker;
+  };
+
+  for (const step of bufferEl.querySelectorAll(".step")) {
+    overviewEl.append(place(step, "ov-step"));
+  }
+  for (const row of bufferEl.querySelectorAll(".gate-line")) {
+    const marker = place(row, `ov-gate ${row.dataset.status}`);
+    marker.title = row.querySelector('[data-field="item-text"]')?.value.slice(0, 80) ?? "";
+    marker.addEventListener("click", (event) => {
+      event.stopPropagation();
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    overviewEl.append(marker);
+  }
+
+  updateOverviewViewport();
+}
+
+function updateOverviewViewport() {
+  if (overviewEl.hidden) return;
+  const docHeight = document.documentElement.scrollHeight;
+  const railHeight = overviewEl.clientHeight;
+  overviewViewportEl.style.top = `${(window.scrollY / docHeight) * railHeight}px`;
+  overviewViewportEl.style.height = `${(window.innerHeight / docHeight) * railHeight}px`;
 }
 
 function renderDocumentLead() {
@@ -277,6 +336,7 @@ function renderGate() {
   gateFillEl.style.width = `${Math.round(ratio * 100)}%`;
   gateLabelEl.textContent = stats.open === 0 ? "gate clear" : `${stats.open} open`;
   gateFillEl.style.background = stats.open === 0 ? "var(--green)" : "var(--orange)";
+  buildOverview();
 }
 
 function renderEmptyShell() {
