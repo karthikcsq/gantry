@@ -1,0 +1,122 @@
+[
+  {
+    "file": "src/app/apply/page.tsx",
+    "name": "loadAuthUserData",
+    "line": 390,
+    "loc": 66,
+    "sig": "edit flow hasRestoredDbDraftRef.current = true; const loadAuthUserData = async ()",
+    "pattern": 1,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.66,
+    "clean_sig": " const loadAuthUserData = async ()"
+  },
+  {
+    "file": "src/components/admin/posting/PostedUrlInput.tsx",
+    "name": "validatePostedUrl",
+    "line": 14,
+    "loc": 8,
+    "sig": ": string)",
+    "pattern": 0,
+    "cross_imports": 3,
+    "test_refs": 0,
+    "score": 1.58,
+    "clean_sig": "export function validatePostedUrl(platform: Platform, raw: string): 'empty' | 'valid' | 'invalid'"
+  },
+  {
+    "file": "src/app/api/admin/analytics/campaigns/route.ts",
+    "name": "GET",
+    "line": 6,
+    "loc": 86,
+    "sig": "b/prisma'; import",
+    "pattern": 0,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.86,
+    "clean_sig": "export async function GET(request: NextRequest)"
+  },
+  {
+    "file": "src/app/admin/db/EmailDatabaseClient.tsx",
+    "name": "handleDelete",
+    "line": 719,
+    "loc": 22,
+    "sig": "l } finally",
+    "pattern": 1,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.22,
+    "clean_sig": " const handleDelete = async ()"
+  },
+  {
+    "file": "src/app/api/staff/draft/route.ts",
+    "name": "DELETE",
+    "line": 81,
+    "loc": 31,
+    "sig": "status: 500 } ) } } // DELETE: Remove draft export async function DELETE(request: NextRequest)",
+    "pattern": 0,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.31,
+    "clean_sig": "export async function DELETE(request: NextRequest)"
+  },
+  {
+    "file": "src/components/Footer.tsx",
+    "name": "Footer",
+    "line": 3,
+    "loc": 25,
+    "sig": "import Link from 'next/link'; export function Footer()",
+    "pattern": 0,
+    "cross_imports": 1,
+    "test_refs": 0,
+    "score": 0.75,
+    "clean_sig": "export function Footer()"
+  },
+  {
+    "file": "src/components/events/CheckinForm.tsx",
+    "name": "handleCheckboxChange",
+    "line": 179,
+    "loc": 17,
+    "sig": "} } return newAnswers; }); }; const handleCheckboxChange = (questionId: string, option: string, checked: boolean)",
+    "pattern": 1,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.17,
+    "clean_sig": " const handleCheckboxChange = (questionId: string, option: string, checked: boolean)"
+  },
+  {
+    "file": "src/components/admin/CohostSection.tsx",
+    "name": "CohostSection",
+    "line": 19,
+    "loc": 0,
+    "sig": "ing; entityType: 'event' | 'program'; } export default function CohostSection(",
+    "pattern": 0,
+    "cross_imports": 2,
+    "test_refs": 0,
+    "score": 1.0,
+    "clean_sig": "export default function CohostSection({ entityId, entityType }: CohostSectionProps)"
+  },
+  {
+    "file": "src/hooks/usePostingWorkflowState.ts",
+    "name": "normalizeParsedState",
+    "line": 173,
+    "loc": 56,
+    "sig": "LT_WORKFLOW_STATE.stage2.platforms, ...out } }; } function normalizeParsedState(parsed: Partial<PostingWorkflowState>): PostingWorkflowState",
+    "pattern": 0,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.56,
+    "clean_sig": "function normalizeParsedState(parsed: Partial<PostingWorkflowState>): PostingWorkflowState"
+  },
+  {
+    "file": "src/app/api/admin/analytics/funnel/route.ts",
+    "name": "GET",
+    "line": 8,
+    "loc": 76,
+    "sig": "pe FunnelRow =",
+    "pattern": 0,
+    "cross_imports": 0,
+    "test_refs": 0,
+    "score": 0.76,
+    "clean_sig": "export async function GET(request: NextRequest)"
+  }
+]
