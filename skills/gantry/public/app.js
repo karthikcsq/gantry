@@ -1,11 +1,15 @@
 const slugInput = document.querySelector("#slug-input");
 const slugForm = document.querySelector("#slug-form");
 const stepsEl = document.querySelector("#steps");
-const rawEl = document.querySelector("#raw-markdown");
 const statusEl = document.querySelector("#status");
 const docPathEl = document.querySelector("#doc-path");
 const saveButton = document.querySelector("#save-button");
 const lintButton = document.querySelector("#lint-button");
+const structureMapEl = document.querySelector("#structure-map");
+const structureSummaryEl = document.querySelector("#structure-summary");
+const queueListEl = document.querySelector("#queue-list");
+const gateLabelEl = document.querySelector("#gate-label");
+const gateFillEl = document.querySelector("#gate-fill");
 
 let model = null;
 let slug = new URLSearchParams(location.search).get("slug") ?? "";
@@ -31,6 +35,8 @@ async function openSlug(nextSlug) {
   const data = await response.json();
   if (!response.ok || !data.ok) {
     setStatus(data.error ?? "Could not load Gantry doc.", "error");
+    model = null;
+    renderEmptyShell();
     return;
   }
   slug = nextSlug;
@@ -74,7 +80,6 @@ async function checkGate(showSuccess) {
 
 function render() {
   stepsEl.innerHTML = "";
-  rawEl.textContent = model.markdown;
   const itemsByStep = new Map();
   for (const item of model.items) {
     const list = itemsByStep.get(item.stepId) ?? [];
@@ -82,28 +87,148 @@ function render() {
     itemsByStep.set(item.stepId, list);
   }
 
-  for (const step of model.steps) {
+  model.steps.forEach((step, index) => {
     const stepEl = document.createElement("article");
     stepEl.className = "step";
     stepEl.dataset.stepId = step.id;
+    const stepItems = itemsByStep.get(step.id) ?? [];
+    const openItems = stepItems.filter((item) => !isResolved(item.status));
+
+    const stepHead = document.createElement("div");
+    stepHead.className = "step-head";
+    stepHead.innerHTML = `
+      <span class="step-number">${index + 1}</span>
+      <span class="step-title">Step ${index + 1}</span>
+      <span class="step-state ${openItems.length ? "needs-work" : "clear"}">
+        ${openItems.length ? `${openItems.length} open` : "clear"}
+      </span>
+    `;
+    stepEl.append(stepHead);
 
     const textarea = document.createElement("textarea");
+    textarea.setAttribute("aria-label", `Pseudocode step ${index + 1}`);
     textarea.value = step.text;
     textarea.dataset.field = "step-text";
     stepEl.append(textarea);
 
     const itemsEl = document.createElement("div");
     itemsEl.className = "items";
-    for (const item of itemsByStep.get(step.id) ?? []) {
+    if (stepItems.length === 0) {
+      itemsEl.innerHTML = '<div class="inline-empty">No AI gates attached to this step.</div>';
+    }
+    for (const item of stepItems) {
       itemsEl.append(renderItem(item));
     }
     stepEl.append(itemsEl);
     stepsEl.append(stepEl);
+  });
+
+  if (model.steps.length === 0) {
+    stepsEl.innerHTML = '<div class="empty-state"><strong>No editable steps found.</strong><span>Add numbered pseudocode steps to the Pseudocode section, then reopen this doc.</span></div>';
+  }
+
+  renderStructure(itemsByStep);
+  renderQueue(itemsByStep);
+  renderGate();
+}
+
+function renderStructure(itemsByStep) {
+  structureMapEl.innerHTML = "";
+  const stats = modelStats();
+  structureSummaryEl.innerHTML = `
+    <div><strong>${stats.steps}</strong><span>steps</span></div>
+    <div><strong>${stats.resolved}</strong><span>resolved</span></div>
+    <div><strong>${stats.open}</strong><span>open</span></div>
+  `;
+
+  for (const [index, step] of model.steps.entries()) {
+    const stepItems = itemsByStep.get(step.id) ?? [];
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "map-step";
+    link.dataset.stepId = step.id;
+    const unresolved = stepItems.filter((item) => !isResolved(item.status)).length;
+    link.innerHTML = `
+      <span class="map-index">${index + 1}</span>
+      <span class="map-copy">
+        <strong>${escapeHtml(shortStepText(step.text))}</strong>
+        <span>${stepItems.length ? itemSummary(stepItems) : "No AI gates attached"}</span>
+      </span>
+      <span class="map-state ${unresolved ? "needs-work" : "clear"}">${unresolved || "clear"}</span>
+    `;
+    link.addEventListener("click", () => {
+      document.querySelector(`.step[data-step-id="${CSS.escape(step.id)}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    structureMapEl.append(link);
   }
 
   if (model.steps.length === 0) {
-    stepsEl.innerHTML = '<div class="status">No editable pseudocode steps found in the Pseudocode section.</div>';
+    structureMapEl.innerHTML = '<div class="empty-state compact"><strong>No steps yet.</strong><span>Numbered pseudocode lines become the blueprint.</span></div>';
   }
+}
+
+function renderQueue(itemsByStep) {
+  queueListEl.innerHTML = "";
+  const stepById = new Map(model.steps.map((step, index) => [step.id, { step, index }]));
+  const openItems = model.items.filter((item) => !isResolved(item.status));
+
+  if (openItems.length === 0) {
+    queueListEl.innerHTML = `
+      <div class="empty-state compact success">
+        <strong>Gate is clear.</strong>
+        <span>Every AI contribution has an explicit decision.</span>
+      </div>
+    `;
+    return;
+  }
+
+  for (const item of openItems) {
+    const stepInfo = stepById.get(item.stepId);
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = `queue-item ${item.type}`;
+    card.innerHTML = `
+      <span class="queue-meta">
+        <span class="badge badge-${item.type}">${labelForType(item.type)}</span>
+        <span>Step ${stepInfo ? stepInfo.index + 1 : "?"}</span>
+      </span>
+      <strong>${escapeHtml(item.text)}</strong>
+      <span>${escapeHtml(stepInfo ? shortStepText(stepInfo.step.text) : "No parent step")}</span>
+    `;
+    card.addEventListener("click", () => {
+      document.querySelector(`.item[data-item-id="${CSS.escape(item.id)}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    queueListEl.append(card);
+  }
+}
+
+function renderGate() {
+  const stats = modelStats();
+  const ratio = stats.total === 0 ? 1 : stats.resolved / stats.total;
+  gateFillEl.style.width = `${Math.round(ratio * 100)}%`;
+  gateLabelEl.textContent = stats.open === 0
+    ? "Ready for code writing"
+    : `${stats.open} unresolved ${stats.open === 1 ? "item" : "items"}`;
+}
+
+function renderEmptyShell() {
+  stepsEl.innerHTML = "";
+  structureMapEl.innerHTML = "";
+  structureSummaryEl.innerHTML = '<div class="summary-placeholder">Open a Gantry doc to map the workflow.</div>';
+  queueListEl.innerHTML = `
+    <div class="empty-state compact">
+      <strong>No document loaded.</strong>
+      <span>Open a slug to see blocking references, edge cases, and ripples.</span>
+    </div>
+  `;
+  gateFillEl.style.width = "0%";
+  gateLabelEl.textContent = "No document open";
 }
 
 function renderItem(item) {
@@ -113,11 +238,15 @@ function renderItem(item) {
 
   const head = document.createElement("div");
   head.className = "item-head";
-  head.innerHTML = `<span class="badge">${item.type}</span><span class="badge">${item.status}</span>`;
+  head.innerHTML = `
+    <span class="badge badge-${item.type}">${labelForType(item.type)}</span>
+    <span class="badge badge-${item.status}">${labelForStatus(item.status)}</span>
+  `;
   el.append(head);
 
   const text = document.createElement("textarea");
   text.dataset.field = "item-text";
+  text.setAttribute("aria-label", `${labelForType(item.type)} text`);
   text.value = item.text;
   el.append(text);
 
@@ -152,6 +281,7 @@ function renderItem(item) {
   label.textContent = "Comments";
   const comments = document.createElement("textarea");
   comments.dataset.field = "comments";
+  comments.setAttribute("aria-label", "Decision comments");
   comments.value = (item.comments ?? []).join("\n");
   el.append(label, comments);
 
@@ -167,11 +297,40 @@ function statusButton(status, current) {
   button.addEventListener("click", () => {
     const item = button.closest(".item");
     item.dataset.status = status;
+    const original = model?.items.find((candidate) => candidate.id === item.dataset.itemId);
+    const itemType = original?.type ?? "";
+    if (original) original.status = status;
+    item.className = `item ${itemType} ${status}`;
     item.querySelectorAll("button[data-status]").forEach((candidate) => {
       candidate.classList.toggle("active", candidate === button);
     });
+    updateStepState(item.closest(".step"));
+    refreshSidebars();
   });
   return button;
+}
+
+function updateStepState(stepEl) {
+  if (!stepEl || !model) return;
+  const stepItems = model.items.filter((item) => item.stepId === stepEl.dataset.stepId);
+  const openItems = stepItems.filter((item) => !isResolved(item.status));
+  const state = stepEl.querySelector(".step-state");
+  if (!state) return;
+  state.className = `step-state ${openItems.length ? "needs-work" : "clear"}`;
+  state.textContent = openItems.length ? `${openItems.length} open` : "clear";
+}
+
+function refreshSidebars() {
+  if (!model) return;
+  const itemsByStep = new Map();
+  for (const item of model.items) {
+    const list = itemsByStep.get(item.stepId) ?? [];
+    list.push(item);
+    itemsByStep.set(item.stepId, list);
+  }
+  renderStructure(itemsByStep);
+  renderQueue(itemsByStep);
+  renderGate();
 }
 
 function collectUpdates() {
@@ -222,6 +381,44 @@ function labelForStatus(status) {
     "choice-b": "Choose B",
     "choice-c": "Choose C",
   }[status];
+}
+
+function modelStats() {
+  const resolved = model.items.filter((item) => isResolved(item.status)).length;
+  return {
+    steps: model.steps.length,
+    total: model.items.length,
+    resolved,
+    open: model.items.length - resolved,
+  };
+}
+
+function labelForType(type) {
+  return {
+    ref: "Reference",
+    edge: "Edge case",
+    mismatch: "Mismatch",
+    ripple: "Ripple",
+    update: "Update",
+  }[type] ?? type;
+}
+
+function isResolved(status) {
+  return ["accept", "reject", "edit", "choice-a", "choice-b", "choice-c"].includes(status);
+}
+
+function shortStepText(text) {
+  return text.replace(/^\s*\d+\.\s*/, "").trim();
+}
+
+function itemSummary(items) {
+  const counts = items.reduce((summary, item) => {
+    summary[item.type] = (summary[item.type] ?? 0) + 1;
+    return summary;
+  }, {});
+  return Object.entries(counts)
+    .map(([type, count]) => `${count} ${labelForType(type).toLowerCase()}`)
+    .join(", ");
 }
 
 function escapeHtml(value) {
