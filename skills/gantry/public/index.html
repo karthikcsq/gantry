@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gantry Editor</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Gantry Editor</h1>
+        <p id="doc-path">.gantry/&lt;slug&gt;.md</p>
+      </div>
+      <form id="slug-form" class="slug-form">
+        <input id="slug-input" name="slug" placeholder="slug" autocomplete="off" />
+        <button type="submit">Open</button>
+      </form>
+    </header>
+
+    <main class="layout">
+      <section class="panel workbench">
+        <div class="panel-head">
+          <h2>Pseudocode</h2>
+          <div class="actions">
+            <button id="save-button" type="button">Save</button>
+            <button id="lint-button" type="button">Check Gate</button>
+          </div>
+        </div>
+        <div id="status" class="status">Open a Gantry slug to begin.</div>
+        <div id="steps" class="steps"></div>
+      </section>
+
+      <aside class="panel raw-panel">
+        <div class="panel-head">
+          <h2>Markdown</h2>
+        </div>
+        <pre id="raw-markdown"></pre>
+      </aside>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

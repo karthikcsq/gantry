@@ -16,6 +16,67 @@ When invoked, gantry accepts up to two optional arguments: a slug and a source h
 - **slug** — optional. If omitted, ask the engineer "what are you building?" and derive a slug from their one-liner.
 - **source hint** — optional path or symbol (e.g., `src/vendor/search.ts` or `searchVendors`). Used in rebuild mode to point at existing code.
 
+## Browser editor
+
+Gantry includes an optional local browser editor for `.gantry/<slug>.md`. The markdown file remains the only durable source of truth; the editor is just a faster surface for editing pseudocode steps, approving/rejecting AI items, choosing A/B/C options, and attaching comments.
+
+Launch it from the project root:
+
+```bash
+node path/to/skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
+```
+
+When running from this repository, the shorter form is:
+
+```bash
+node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
+```
+
+The server prints a `http://127.0.0.1:<port>/` URL. Open that URL and save through the UI. If saving fails, the UI shows the server error and the markdown file is not updated.
+
+Lint the Gantry markdown format:
+
+```bash
+node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug>
+```
+
+Check the code-writing gate:
+
+```bash
+node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug> --gate
+```
+
+If older Gantry docs contain checkbox annotations without stable ids, add ids before using the browser editor:
+
+```bash
+node skills/gantry/scripts/gantry-editor.mjs ids --slug <slug>
+```
+
+### Strict editable item format
+
+Editable AI items live under `## Pseudocode`, immediately after the pseudocode step they apply to. Each item has a stable marker plus the human-readable checkbox line:
+
+```markdown
+1. Read the query from the request.
+<!-- gantry:item id=gty-ref-query type=ref status=open mode=decision -->
+- [ ] **ref:** should this use `searchParams` or the parsed body?
+  - comment: confirm route shape
+```
+
+Choice items use `mode=choice` and options A/B/C:
+
+```markdown
+2. Search vendors by name.
+<!-- gantry:item id=gty-edge-empty type=edge status=choice-b mode=choice -->
+- [x] **edge:** [choice-b] what happens for an empty query?
+  - A: return all vendors
+  - B: return no vendors
+  - C: throw validation error
+  - comment: empty query should fail loudly
+```
+
+Valid item types are `ref`, `edge`, `ripple`, `update`, and `mismatch`. Valid statuses are `open`, `accept`, `reject`, `edit`, `choice-a`, `choice-b`, and `choice-c`. `open` items still block code writing.
+
 ## State inference (first thing the skill does)
 
 When the slug is omitted, do not immediately create a new slug from the description. First search existing gantry docs for a plausible match, then derive a new slug only if none match.

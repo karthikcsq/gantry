@@ -1,0 +1,10 @@
+{
+  "name": "gantry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "gantry:editor": "node skills/gantry/scripts/gantry-editor.mjs serve",
+    "gantry:lint": "node skills/gantry/scripts/gantry-editor.mjs lint"
+  }
+}
