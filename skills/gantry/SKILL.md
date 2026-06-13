@@ -20,6 +20,8 @@ When invoked, gantry accepts up to two optional arguments: a slug and a source h
 
 Gantry includes an optional local browser editor for `.gantry/<slug>.md`. The markdown file remains the only durable source of truth; the editor is just a faster surface for editing pseudocode steps, approving/rejecting AI items, choosing A/B/C options, and attaching comments.
 
+The editor is also the **drafting surface for a brand-new doc**, not only for editing a populated one. While a doc has no AI items yet (the authoring state), the editor presents a single freeform pseudocode field — the engineer writes loosely (prose, their own numbering, or none) and it is saved verbatim. Once AI annotations exist, the editor switches to the per-step gate view for resolving them.
+
 Launch it from the project root:
 
 ```bash
@@ -32,7 +34,7 @@ When running from this repository, the shorter form is:
 node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
 ```
 
-The server prints a `http://127.0.0.1:<port>/` URL. Open that URL and save through the UI. If saving fails, the UI shows the server error and the markdown file is not updated.
+**The skill launches this for the engineer — don't make them run it.** When the workflow reaches the drafting/editing surface, Claude/Codex starts the server itself, in the background (it is a long-lived process — launch it non-blocking so the conversation continues). On launch the server **opens the editor in the engineer's default browser automatically** and also prints the `http://127.0.0.1:<port>/` URL as a fallback. Pass `--no-open` only to suppress that (e.g. tests). Save through the UI; if saving fails, the UI shows the server error and the markdown file is not updated.
 
 Lint the Gantry markdown format:
 
@@ -143,9 +145,13 @@ last_diff_check: <timestamp>
 
 Forward mode is only allowed after the no-slug related-doc search has found no plausible existing doc, or after the engineer explicitly chose to create a new doc instead of continuing a candidate.
 
-1. **Ask the target.** If no slug-derived one-liner, ask "what are you building?" — one sentence. Use it as the doc target and slug source.
+1. **Ask the target.** When gantry is invoked with no slug and no description, explicitly ask "what are you building?" — one sentence — before doing anything else. Run the related-doc search (see state inference above), then use the one-liner as the doc target and slug source.
 2. **Scaffold.** Create main doc + sidecar. Record baseline.
-3. **Engineer writes pseudocode.** Primary surface: the main doc, in their editor. Fallback: chat — if the engineer types pseudocode into chat, transcribe it into the main doc verbatim (no rewording).
+3. **Engineer drafts pseudocode.** Claude/Codex launches the browser editor as the primary drafting surface — run it in the background so it doesn't block the conversation:
+   ```bash
+   node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
+   ```
+   This opens the editor in the engineer's browser automatically. A freshly scaffolded doc has no AI items, so the editor shows a single freeform pseudocode field — the engineer writes loosely and saves. Fallback: chat — if the engineer types pseudocode into chat, transcribe it into the main doc verbatim (no rewording).
 4. **Engineer signals "ready"** (or similar). Now AI annotates.
 5. **Annotate inline.** Walk the pseudocode step by step. Under each step that needs it, add `- [ ]` annotations of three types (rules in [annotation bar](#annotation-bar) below):
    - `**ref:**` — verify symbols and resolve ambiguity for references the engineer used.

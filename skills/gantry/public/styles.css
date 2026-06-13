@@ -272,6 +272,19 @@ textarea::placeholder {
   color: var(--ink-bright);
 }
 
+/* ── freeform drafting field (new/empty doc, no AI items yet) ─ */
+
+.draft {
+  margin-top: 4px;
+}
+
+.freeform {
+  min-height: 60vh;
+  color: var(--ink-bright);
+  padding: 8px 10px;
+  white-space: pre-wrap;
+}
+
 /* ── gate items (the AI-surfaced edge cases / "problems") ──── */
 
 .gate-line {

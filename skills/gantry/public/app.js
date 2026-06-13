@@ -100,14 +100,21 @@ function render() {
 
   renderDocumentLead();
 
-  model.steps.forEach((step, index) => {
-    const stepItems = itemsByStep.get(step.id) ?? [];
-    bufferEl.append(renderStep(step, index, stepItems));
-  });
+  // Drafting state: no AI items yet. Offer one freeform pseudocode field so a
+  // freshly scaffolded doc can be authored loosely. Once annotations exist, the
+  // per-step gate view below takes over.
+  if (isDraftingMode()) {
+    bufferEl.append(renderFreeform());
+  } else {
+    model.steps.forEach((step, index) => {
+      const stepItems = itemsByStep.get(step.id) ?? [];
+      bufferEl.append(renderStep(step, index, stepItems));
+    });
 
-  if (model.steps.length === 0) {
-    const empty = line("plain", "No numbered pseudocode steps found.");
-    bufferEl.append(empty);
+    if (model.steps.length === 0) {
+      const empty = line("plain", "No numbered pseudocode steps found.");
+      bufferEl.append(empty);
+    }
   }
 
   renderGate();
@@ -130,7 +137,9 @@ function buildOverview() {
   overviewRowsEl.replaceChildren();
 
   const scrollable = document.documentElement.scrollHeight > window.innerHeight + 8;
-  overviewEl.hidden = !scrollable || !model || model.steps.length === 0;
+  // The outline maps to per-step DOM; in freeform drafting there are no step
+  // elements to jump to, so hide it.
+  overviewEl.hidden = !scrollable || !model || model.steps.length === 0 || isDraftingMode();
   bufferEl.classList.toggle("with-outline", !overviewEl.hidden);
   if (overviewEl.hidden) return;
 
@@ -202,7 +211,7 @@ function renderDocumentLead() {
   if (targetLine) {
     bufferEl.append(metaRow("Target", targetLine.replace(/^\*\*Target:\*\*\s*/, "").trim()));
   }
-  bufferEl.append(sectionHeader("Pseudocode", model.steps.length));
+  bufferEl.append(sectionHeader("Pseudocode", isDraftingMode() ? undefined : model.steps.length));
 }
 
 function docTitle(text) {
@@ -254,6 +263,54 @@ function setTabName(title) {
 
 function slugName() {
   return (slug || "untitled").replace(/\.md$/i, "");
+}
+
+// Drafting mode = a doc with no AI items yet. This is the "author a new doc"
+// state: the engineer writes freeform pseudocode before asking AI to annotate.
+function isDraftingMode() {
+  return Boolean(model) && model.items.length === 0;
+}
+
+// A single freeform field for the whole Pseudocode section. The engineer writes
+// loosely — prose, their own numbering, or none; we persist it verbatim.
+function renderFreeform() {
+  const wrap = document.createElement("section");
+  wrap.className = "draft";
+
+  const text = document.createElement("textarea");
+  text.className = "freeform";
+  text.dataset.field = "pseudocode-freeform";
+  text.setAttribute("aria-label", "Pseudocode draft");
+  text.placeholder =
+    "Write your pseudocode here — freeform. One idea per line; number them or not, your call.";
+  text.value = pseudocodeBody(model.markdown);
+  autosize(text);
+  text.addEventListener("input", () => autosize(text));
+  wrap.append(text);
+  return wrap;
+}
+
+// Slice the raw text of the `## Pseudocode` section out of the markdown, dropping
+// scaffold placeholder lines like `<empty — engineer writes here>` so a fresh doc
+// opens to a blank field.
+function pseudocodeBody(markdown) {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  let start = -1;
+  let end = lines.length;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (start < 0) {
+      if (/^##\s+pseudocode\s*$/i.test(lines[i])) start = i + 1;
+    } else if (/^#{1,6}\s+/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  if (start < 0) return "";
+  return lines
+    .slice(start, end)
+    .filter((text) => !/^\s*<.*>\s*$/.test(text))
+    .join("\n")
+    .trim();
 }
 
 function renderStep(step, index, stepItems) {
@@ -427,6 +484,13 @@ function renderEmptyShell() {
 }
 
 function collectUpdates() {
+  // Drafting mode sends the freeform pseudocode body; the server replaces the
+  // whole section with it. No step/item round-trip in this state.
+  const freeform = document.querySelector('[data-field="pseudocode-freeform"]');
+  if (freeform) {
+    return { slug, pseudocode: freeform.value };
+  }
+
   const steps = [...document.querySelectorAll(".step")].map((step, index) => ({
     id: step.dataset.stepId,
     text: `${index + 1}. ${step.querySelector('[data-field="step-text"]').value.trim()}`,

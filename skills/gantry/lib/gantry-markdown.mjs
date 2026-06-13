@@ -37,6 +37,25 @@ export function parseGantryMarkdown(markdown) {
 
 export function serializeGantryMarkdown(parsed, updates) {
   const lines = [...parsed.lines];
+
+  // Freeform drafting path: when the client sends a raw `pseudocode` body, replace
+  // the whole `## Pseudocode` section with it verbatim (no forced renumbering).
+  // Only valid before any AI items exist — an annotated doc must never lose its
+  // gate state through this path, so refuse the overwrite when items are present.
+  if (typeof updates.pseudocode === "string") {
+    const section = parsed.sections.get("pseudocode");
+    if (!section) {
+      throw statusError("Cannot draft: document has no ## Pseudocode section.", 422);
+    }
+    if (parsed.items.length > 0) {
+      throw statusError("Cannot overwrite pseudocode: document already has AI annotations.", 422);
+    }
+    const body = updates.pseudocode.replace(/\r\n/g, "\n").replace(/\s+$/g, "");
+    const bodyLines = body.length ? body.split("\n") : [];
+    lines.splice(section.start, section.end - section.start, "", ...bodyLines, "");
+    return lines.join("\n");
+  }
+
   const stepUpdates = new Map((updates.steps ?? []).map((step) => [step.id, step]));
   const itemUpdates = new Map((updates.items ?? []).map((item) => [item.id, item]));
 
@@ -266,6 +285,12 @@ function statusFromLine(checkbox, body) {
 
 function issue(code, line, message) {
   return { code, line: line + 1, message };
+}
+
+function statusError(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
 }
 
 function linesSafe(lines, index) {

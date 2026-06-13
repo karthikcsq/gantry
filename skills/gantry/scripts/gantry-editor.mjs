@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
+import { spawn } from "node:child_process";
 import { readFile, writeFile, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
@@ -19,7 +20,7 @@ const args = parseArgs(process.argv.slice(3));
 const root = path.resolve(args.root ?? process.cwd());
 
 if (command === "serve") {
-  serve({ root, slug: args.slug, port: Number(args.port ?? 0) });
+  serve({ root, slug: args.slug, port: Number(args.port ?? 0), open: !args["no-open"] });
 } else if (command === "lint") {
   await lint({ root, slug: args.slug, gate: Boolean(args.gate) });
 } else if (command === "ids") {
@@ -29,7 +30,7 @@ if (command === "serve") {
   process.exitCode = 1;
 }
 
-function serve({ root, slug, port }) {
+function serve({ root, slug, port, open = true }) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://localhost");
@@ -67,9 +68,29 @@ function serve({ root, slug, port }) {
   server.listen(port, "127.0.0.1", () => {
     const address = server.address();
     const query = slug ? `?slug=${encodeURIComponent(slug)}` : "";
-    console.log(`Gantry editor: http://127.0.0.1:${address.port}/${query}`);
+    const url = `http://127.0.0.1:${address.port}/${query}`;
+    console.log(`Gantry editor: ${url}`);
     console.log(`Project root: ${root}`);
+    // Open the editor in the OS default browser on launch, so whoever starts the
+    // server — a human, or Claude/Codex running the skill in the background —
+    // gets the editor surfaced automatically. Pass --no-open to suppress (tests).
+    if (open) openBrowser(url);
   });
+}
+
+// Best-effort: open a URL in the OS default browser. Failures are swallowed —
+// the URL is already printed for manual opening.
+function openBrowser(url) {
+  const command =
+    process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
+  const cmdArgs = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  try {
+    const child = spawn(command, cmdArgs, { detached: true, stdio: "ignore" });
+    child.on("error", () => {});
+    child.unref();
+  } catch {
+    // ignore — manual open via the printed URL still works
+  }
 }
 
 async function lint({ root, slug, gate }) {
@@ -166,6 +187,8 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === "--gate") {
       result.gate = true;
+    } else if (arg === "--no-open") {
+      result["no-open"] = true;
     } else if (arg.startsWith("--")) {
       result[arg.slice(2)] = argv[i + 1];
       i += 1;
@@ -178,7 +201,7 @@ function parseArgs(argv) {
 
 function usage() {
   console.error(`Usage:
-  node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug> [--port 8787] [--root <repo>]
+  node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug> [--port 8787] [--root <repo>] [--no-open]
   node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug> [--gate] [--root <repo>]
   node skills/gantry/scripts/gantry-editor.mjs ids --slug <slug> [--root <repo>]`);
 }
