@@ -1,9 +1,12 @@
 :root {
   color-scheme: dark;
   --bg: #1e1e1e;
+  --panel: #252526;
+  --panel-2: #1a1a1a;
   --line: #2a2a2a;
   --line-strong: #3b3b3b;
   --ink: #d4d4d4;
+  --ink-bright: #f0f0f0;
   --muted: #6e7681;
   --blue: #569cd6;
   --orange: #ce9178;
@@ -15,7 +18,13 @@
   --sel: #264f78;
   --bar: #007acc;
   --bar-bg: #181818;
+  /* editable-field surfaces — the visual signal for "you type here" */
+  --field: #202020;
+  --field-hover: #262626;
+  --field-focus: #2a2d2e;
+  --field-line: #343434;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -56,16 +65,71 @@ textarea:focus-visible {
   outline-offset: -1px;
 }
 
+/* ── top editor tab bar (IDE chrome) ───────────────────────── */
+
+.topbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 11;
+  display: flex;
+  align-items: stretch;
+  height: 35px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-ui);
+  padding-left: 8px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  align-self: flex-end;
+  height: 34px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-bottom: 1px solid var(--bg);
+  border-radius: 6px 6px 0 0;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex: 0 0 auto;
+}
+
+.tab-name {
+  white-space: nowrap;
+}
+
+.topbar-spring {
+  flex: 1 1 auto;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  padding-right: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
 /* ── editor buffer ─────────────────────────────────────────── */
 
 .buffer {
   min-height: 100vh;
-  padding: 6px 30px 40px 16px;
+  padding: 50px 30px 48px 18px;
 }
 
 /* reserve room for the outline pane only while it is shown */
 .buffer.with-outline {
-  padding-right: 146px;
+  padding-right: 244px;
 }
 
 .md-line {
@@ -73,48 +137,81 @@ textarea:focus-visible {
   word-break: break-word;
 }
 
-.heading {
-  font-weight: 600;
-}
-
-.h1 {
-  color: var(--tan);
-}
-
-.h2 {
-  color: var(--blue);
-  margin-top: 12px;
-}
-
-.target {
-  color: var(--ink);
-}
-
-.target::first-line {
-  /* keeps **Target:** label inline; coloring handled below */
-}
-
 .plain {
   color: var(--muted);
 }
 
-/* ── pseudocode steps ──────────────────────────────────────── */
+/* ── document header (rendered, not raw markdown) ──────────── */
 
-.step {
-  margin-top: 2px;
+.doc-title {
+  margin: 4px 0 10px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink-bright);
+  letter-spacing: -0.01em;
 }
 
-.step-line {
+.doc-target {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 0 0 6px;
+  padding: 7px 12px;
+  background: var(--panel);
+  border-left: 2px solid var(--blue);
+  border-radius: 0 5px 5px 0;
+  line-height: 1.45;
 }
 
-.md-number {
-  color: var(--tan);
-  flex: 0 0 auto;
-  user-select: none;
+.doc-target-label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
 }
+
+.doc-target-text {
+  flex: 1 1 240px;
+  color: var(--ink);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 8px;
+}
+
+.section-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.section-count {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel);
+  border-radius: 9px;
+  padding: 0 7px;
+}
+
+.section-rule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ── editable fields: the shared "you type here" affordance ── */
 
 textarea {
   width: 100%;
@@ -122,38 +219,73 @@ textarea {
   overflow: hidden;
   resize: none;
   border: 0;
-  background: transparent;
+  border-radius: 4px;
+  background: var(--field);
   color: inherit;
-  padding: 0;
+  padding: 1px 7px;
   line-height: 1.5;
+  /* underline keeps the field readable as an input without changing layout
+     height (box-shadow does not affect scrollHeight, so autosize stays exact) */
+  box-shadow: inset 0 -1px 0 var(--field-line);
+  transition: background 0.1s ease, box-shadow 0.1s ease;
+}
+
+textarea:hover {
+  background: var(--field-hover);
+  box-shadow: inset 0 -1px 0 var(--line-strong);
+}
+
+textarea:focus {
+  outline: none;
+  background: var(--field-focus);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+textarea::placeholder {
+  color: var(--muted);
+}
+
+/* ── pseudocode steps ──────────────────────────────────────── */
+
+.step {
+  margin-top: 3px;
+}
+
+.step-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.md-number {
+  flex: 0 0 24px;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  padding-top: 1px;
+  opacity: 0.85;
 }
 
 .step-line textarea {
   flex: 1 1 240px;
-  color: var(--ink);
+  color: var(--ink-bright);
 }
 
-textarea:hover {
-  background: #252525;
-}
-
-textarea:focus {
-  background: #2a2d2e;
-}
-
-/* ── gate items (the merge-conflict-like blocks) ───────────── */
+/* ── gate items (the AI-surfaced edge cases / "problems") ──── */
 
 .gate-line {
-  margin: 1px 0 1px 22px;
+  margin: 4px 0 4px 24px;
   border-left: 2px solid var(--line-strong);
-  padding: 0 0 0 8px;
+  border-radius: 0 4px 4px 0;
+  padding: 3px 0 4px 10px;
 }
 
 .gate-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0 6px;
+  gap: 4px 7px;
 }
 
 .gate-head textarea {
@@ -163,22 +295,35 @@ textarea:focus {
 
 .controls {
   display: inline-flex;
-  gap: 2px;
+  gap: 3px;
   flex: 0 0 auto;
+  padding-top: 1px;
 }
 
+/* type label rendered as a diagnostic chip */
 .md-type {
   flex: 0 0 auto;
   white-space: nowrap;
   user-select: none;
-  font-weight: 600;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  line-height: 1.4;
+  margin-top: 1px;
+  background: var(--chip-bg, #2a2a2a);
+  color: var(--ink);
 }
 
-/* type accent: left border + label color */
+/* type accent: left border + chip color */
 .gate-line.ref {
   border-left-color: var(--blue);
 }
 .md-type.ref {
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
   color: var(--blue);
 }
 
@@ -186,6 +331,7 @@ textarea:focus {
   border-left-color: var(--orange);
 }
 .md-type.edge {
+  background: color-mix(in srgb, var(--orange) 20%, transparent);
   color: var(--orange);
 }
 
@@ -195,6 +341,7 @@ textarea:focus {
 }
 .md-type.ripple,
 .md-type.update {
+  background: color-mix(in srgb, var(--purple) 20%, transparent);
   color: var(--purple);
 }
 
@@ -202,6 +349,7 @@ textarea:focus {
   border-left-color: var(--red);
 }
 .md-type.mismatch {
+  background: color-mix(in srgb, var(--red) 20%, transparent);
   color: var(--red);
 }
 
@@ -226,11 +374,10 @@ textarea:focus {
 .decision {
   display: grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
-  margin-top: 1px;
+  width: 18px;
+  height: 18px;
   border: 1px solid var(--line-strong);
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
@@ -262,8 +409,8 @@ textarea:focus {
 
 .choice-button {
   width: auto;
-  min-width: 17px;
-  padding: 0 4px;
+  min-width: 18px;
+  padding: 0 5px;
   color: var(--green);
 }
 .choice-button.active {
@@ -274,58 +421,74 @@ textarea:focus {
 
 /* ── sub-lines: choices + comments ─────────────────────────── */
 
-.choice-lines,
-.comments {
-  margin-left: 24px;
+.choice-lines {
+  margin: 3px 0 1px 26px;
 }
 
 .choice {
   color: var(--muted);
   white-space: pre-wrap;
+  font-size: 12.5px;
 }
 
 .comments {
-  color: var(--muted);
+  margin-left: 26px;
+  margin-top: 3px;
+  width: calc(100% - 26px);
+  color: var(--ink);
   min-height: 1.5em;
 }
 
-.comments:placeholder-shown {
-  opacity: 0.5;
-}
-
-/* ── right-side step outline ───────────────────────────────── */
+/* ── right-side outline panel ──────────────────────────────── */
 
 .overview {
   position: fixed;
-  top: 0;
+  top: 35px;
   right: 0;
   bottom: 26px;
-  width: 132px;
+  width: 224px;
   z-index: 9;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   border-left: 1px solid var(--line);
-  background: #1a1a1a;
-  padding: 6px 0;
+  background: var(--panel-2);
+  font-family: var(--font-ui);
 }
 
 .overview[hidden] {
   display: none;
 }
 
+.ov-title {
+  flex: 0 0 auto;
+  padding: 9px 12px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.ov-rows {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
 /* one row per pseudocode step */
 .ov-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   border: 0;
   border-left: 2px solid transparent;
   background: transparent;
-  color: var(--muted);
+  color: var(--ink);
   text-align: left;
-  padding: 3px 8px 3px 8px;
+  padding: 4px 12px 4px 10px;
   cursor: pointer;
-  border-radius: 0;
 }
 
 .ov-row:hover {
@@ -334,29 +497,47 @@ textarea:focus {
 
 .ov-row.active {
   border-left-color: var(--blue);
-  background: #232323;
+  background: #2a2d2e;
 }
 
 .ov-num {
-  flex: 0 0 auto;
-  color: var(--tan);
+  flex: 0 0 18px;
+  text-align: right;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
+  font-size: 11px;
 }
 
-.ov-open {
+.ov-text {
   flex: 1 1 auto;
-  color: var(--orange);
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--ink);
 }
 
-/* a fully-resolved step collapses: tighter, dimmer, number only */
-.ov-row.clear {
-  padding-top: 1px;
-  padding-bottom: 1px;
+.ov-row.active .ov-text {
+  color: var(--ink-bright);
+}
+
+/* a fully-resolved step dims but stays readable */
+.ov-row.clear .ov-text {
+  color: var(--muted);
 }
 .ov-row.clear .ov-num {
-  color: var(--muted);
   opacity: 0.55;
+}
+
+.ov-badge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 0 7px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--orange) 22%, transparent);
+  color: var(--orange);
 }
 
 /* ── bottom status bar (gate tracker) ──────────────────────── */
@@ -374,6 +555,7 @@ textarea:focus {
   color: var(--muted);
   padding: 0 10px;
   font-size: 12px;
+  font-family: var(--font-ui);
 }
 
 .statusbar button {
@@ -389,6 +571,7 @@ textarea:focus {
 .path-form {
   display: flex;
   align-items: center;
+  font-family: var(--font-mono);
 }
 
 .path-form .dir,
@@ -402,6 +585,8 @@ textarea:focus {
   background: transparent;
   color: var(--blue);
   padding: 0;
+  box-shadow: none;
+  border-radius: 0;
 }
 #slug-input::placeholder {
   color: var(--muted);
@@ -452,5 +637,8 @@ textarea:focus {
   .gate-head textarea,
   .step-line textarea {
     flex-basis: 100%;
+  }
+  .topbar-brand {
+    display: none;
   }
 }

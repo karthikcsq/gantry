@@ -7,9 +7,21 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <header class="topbar" aria-label="Editor tabs">
+      <span class="tab" id="tab">
+        <span class="tab-dot" aria-hidden="true"></span>
+        <span class="tab-name" id="tab-name">untitled.md</span>
+      </span>
+      <span class="topbar-spring"></span>
+      <span class="topbar-brand">gantry · pseudocode gate</span>
+    </header>
+
     <main id="steps" class="buffer" aria-label="Gantry markdown editor"></main>
 
-    <nav id="overview" class="overview" aria-label="Document outline" hidden></nav>
+    <nav id="overview" class="overview" aria-label="Document outline" hidden>
+      <div class="ov-title">Outline</div>
+      <div id="overview-rows" class="ov-rows"></div>
+    </nav>
 
     <footer class="statusbar" aria-label="Gantry gate">
       <form id="slug-form" class="path-form">

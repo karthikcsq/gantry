@@ -7,6 +7,8 @@ const lintButton = document.querySelector("#lint-button");
 const gateLabelEl = document.querySelector("#gate-label");
 const gateFillEl = document.querySelector("#gate-fill");
 const overviewEl = document.querySelector("#overview");
+const overviewRowsEl = document.querySelector("#overview-rows");
+const tabNameEl = document.querySelector("#tab-name");
 
 let model = null;
 let slug = new URLSearchParams(location.search).get("slug") ?? "";
@@ -125,7 +127,7 @@ function render() {
 // collapse to a compact, dimmed number. Only shown when the document is tall
 // enough to scroll. Clicking a row jumps to that step.
 function buildOverview() {
-  overviewEl.replaceChildren();
+  overviewRowsEl.replaceChildren();
 
   const scrollable = document.documentElement.scrollHeight > window.innerHeight + 8;
   overviewEl.hidden = !scrollable || !model || model.steps.length === 0;
@@ -144,21 +146,33 @@ function buildOverview() {
 
     const num = document.createElement("span");
     num.className = "ov-num";
-    num.textContent = `${index + 1}.`;
+    num.textContent = `${index + 1}`;
     row.append(num);
 
+    const text = document.createElement("span");
+    text.className = "ov-text";
+    text.textContent = withoutNumber(step.text) || "(empty step)";
+    row.append(text);
+
     if (openCount > 0) {
-      const open = document.createElement("span");
-      open.className = "ov-open";
-      open.textContent = `${openCount} open`;
-      row.append(open);
+      const badge = document.createElement("span");
+      badge.className = "ov-badge";
+      badge.textContent = String(openCount);
+      badge.title = `${openCount} open gate${openCount === 1 ? "" : "s"}`;
+      row.append(badge);
     }
 
     row.addEventListener("click", () => {
       const target = bufferEl.querySelector(`.step[data-step-id="${step.id}"]`);
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (!target) return;
+      // scrollIntoView lands the step at y=0, behind the fixed topbar. Offset by
+      // the topbar height so the step clears it; the first step scrolls all the
+      // way to the top so the document title stays visible.
+      const offset = 48;
+      const top = index === 0 ? 0 : target.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     });
-    overviewEl.append(row);
+    overviewRowsEl.append(row);
   });
 
   updateActiveStep();
@@ -179,12 +193,67 @@ function updateActiveStep() {
 
 function renderDocumentLead() {
   const lines = model.markdown.replace(/\r\n/g, "\n").split("\n");
-  const title = lines.find((lineText) => /^#\s+/.test(lineText));
-  const target = lines.find((lineText) => /^\*\*Target:\*\*/.test(lineText));
+  const titleLine = lines.find((lineText) => /^#\s+/.test(lineText));
+  const targetLine = lines.find((lineText) => /^\*\*Target:\*\*/.test(lineText));
 
-  if (title) bufferEl.append(line("heading h1", title));
-  if (target) bufferEl.append(line("target", target));
-  bufferEl.append(line("heading h2", "## Pseudocode"));
+  const title = titleLine ? titleLine.replace(/^#\s+/, "").trim() : slugName();
+  setTabName(`${title}`);
+  bufferEl.append(docTitle(title));
+  if (targetLine) {
+    bufferEl.append(metaRow("Target", targetLine.replace(/^\*\*Target:\*\*\s*/, "").trim()));
+  }
+  bufferEl.append(sectionHeader("Pseudocode", model.steps.length));
+}
+
+function docTitle(text) {
+  const el = document.createElement("h1");
+  el.className = "doc-title";
+  el.textContent = text;
+  return el;
+}
+
+// A labelled metadata callout (e.g. "Target: …") rendered as a styled banner
+// instead of leaving the raw **bold** markdown on screen.
+function metaRow(label, body) {
+  const row = document.createElement("p");
+  row.className = "doc-target";
+  const labelEl = document.createElement("span");
+  labelEl.className = "doc-target-label";
+  labelEl.textContent = label;
+  const bodyEl = document.createElement("span");
+  bodyEl.className = "doc-target-text";
+  bodyEl.textContent = body;
+  row.append(labelEl, bodyEl);
+  return row;
+}
+
+// A section divider: tracked uppercase label + count + a hairline rule, in
+// place of a literal "## Pseudocode" markdown line.
+function sectionHeader(title, count) {
+  const header = document.createElement("div");
+  header.className = "section-header";
+  const label = document.createElement("span");
+  label.className = "section-label";
+  label.textContent = title;
+  header.append(label);
+  if (typeof count === "number") {
+    const countEl = document.createElement("span");
+    countEl.className = "section-count";
+    countEl.textContent = `${count} step${count === 1 ? "" : "s"}`;
+    header.append(countEl);
+  }
+  const rule = document.createElement("span");
+  rule.className = "section-rule";
+  header.append(rule);
+  return header;
+}
+
+function setTabName(title) {
+  tabNameEl.textContent = `${title.replace(/\.md$/i, "")}.md`;
+}
+
+function slugName() {
+  return (slug || "untitled").replace(/\.md$/i, "");
 }
 
 function renderStep(step, index, stepItems) {
@@ -232,7 +301,7 @@ function renderItem(item) {
 
   const type = document.createElement("span");
   type.className = `md-type ${item.type}`;
-  type.textContent = `${item.type}:`;
+  type.textContent = item.type;
   head.append(type);
 
   const text = document.createElement("textarea");
@@ -256,7 +325,7 @@ function renderItem(item) {
   comments.className = "comments";
   comments.dataset.field = "comments";
   comments.setAttribute("aria-label", "Gate comments");
-  comments.placeholder = "  - comment:";
+  comments.placeholder = "Add a comment or proposed edit…";
   comments.value = (item.comments ?? []).join("\n");
   autosize(comments);
   comments.addEventListener("input", () => {
@@ -349,10 +418,11 @@ function renderGate() {
 
 function renderEmptyShell() {
   bufferEl.innerHTML = "";
-  bufferEl.append(line("heading h1", "# gantry"));
-  bufferEl.append(line("target", "**Target:** open a .gantry markdown doc"));
-  bufferEl.append(line("heading h2", "## Pseudocode"));
-  bufferEl.append(line("plain", "1. Open a slug from the bottom bar."));
+  setTabName("untitled");
+  bufferEl.append(docTitle("gantry"));
+  bufferEl.append(metaRow("Target", "Open a .gantry markdown doc to begin."));
+  bufferEl.append(sectionHeader("Pseudocode"));
+  bufferEl.append(line("plain", "Open a slug from the bottom bar."));
   renderGate();
 }
 
