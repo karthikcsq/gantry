@@ -7,7 +7,6 @@ const lintButton = document.querySelector("#lint-button");
 const gateLabelEl = document.querySelector("#gate-label");
 const gateFillEl = document.querySelector("#gate-fill");
 const overviewEl = document.querySelector("#overview");
-const overviewViewportEl = document.querySelector("#overview-viewport");
 
 let model = null;
 let slug = new URLSearchParams(location.search).get("slug") ?? "";
@@ -36,15 +35,8 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-window.addEventListener("scroll", updateOverviewViewport, { passive: true });
+window.addEventListener("scroll", updateActiveStep, { passive: true });
 window.addEventListener("resize", buildOverview);
-overviewEl.addEventListener("click", (event) => {
-  // Click on empty rail jumps the viewport to that fraction of the document.
-  const rect = overviewEl.getBoundingClientRect();
-  const fraction = (event.clientY - rect.top) / rect.height;
-  const docHeight = document.documentElement.scrollHeight;
-  window.scrollTo({ top: fraction * docHeight - window.innerHeight / 2, behavior: "smooth" });
-});
 
 async function openSlug(nextSlug) {
   setStatus("loading", "");
@@ -122,51 +114,67 @@ function render() {
   requestAnimationFrame(() => {
     bufferEl.querySelectorAll("textarea").forEach(autosize);
     buildOverview();
+    // buildOverview may toggle .with-outline, changing the buffer width and
+    // therefore how lines wrap — re-measure heights at the settled width.
+    bufferEl.querySelectorAll("textarea").forEach(autosize);
   });
 }
 
-// Build the right-side overview rail: a marker per gate (colored by effective
-// status) and a faint tick per step, positioned by their place in the
-// document. Only shown when the document is tall enough to scroll.
+// Build the right-side step outline: a numbered row per pseudocode step with
+// a count of how many gates are still open on it. Steps with nothing open
+// collapse to a compact, dimmed number. Only shown when the document is tall
+// enough to scroll. Clicking a row jumps to that step.
 function buildOverview() {
-  overviewEl.querySelectorAll(".ov-step, .ov-gate").forEach((node) => node.remove());
+  overviewEl.replaceChildren();
 
-  const docHeight = document.documentElement.scrollHeight;
-  const scrollable = docHeight > window.innerHeight + 8;
-  overviewEl.hidden = !scrollable || !model;
+  const scrollable = document.documentElement.scrollHeight > window.innerHeight + 8;
+  overviewEl.hidden = !scrollable || !model || model.steps.length === 0;
+  bufferEl.classList.toggle("with-outline", !overviewEl.hidden);
   if (overviewEl.hidden) return;
 
-  const railHeight = overviewEl.clientHeight;
-  const place = (el, className) => {
-    const y = el.getBoundingClientRect().top + window.scrollY;
-    const marker = document.createElement("div");
-    marker.className = className;
-    marker.style.top = `${Math.round((y / docHeight) * railHeight)}px`;
-    return marker;
-  };
+  model.steps.forEach((step, index) => {
+    const openCount = model.items.filter(
+      (item) => item.stepId === step.id && effectiveStatus(item) === "open"
+    ).length;
 
-  for (const step of bufferEl.querySelectorAll(".step")) {
-    overviewEl.append(place(step, "ov-step"));
-  }
-  for (const row of bufferEl.querySelectorAll(".gate-line")) {
-    const marker = place(row, `ov-gate ${row.dataset.status}`);
-    marker.title = row.querySelector('[data-field="item-text"]')?.value.slice(0, 80) ?? "";
-    marker.addEventListener("click", (event) => {
-      event.stopPropagation();
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `ov-row ${openCount > 0 ? "has-open" : "clear"}`;
+    row.dataset.stepId = step.id;
+
+    const num = document.createElement("span");
+    num.className = "ov-num";
+    num.textContent = `${index + 1}.`;
+    row.append(num);
+
+    if (openCount > 0) {
+      const open = document.createElement("span");
+      open.className = "ov-open";
+      open.textContent = `${openCount} open`;
+      row.append(open);
+    }
+
+    row.addEventListener("click", () => {
+      const target = bufferEl.querySelector(`.step[data-step-id="${step.id}"]`);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-    overviewEl.append(marker);
-  }
+    overviewEl.append(row);
+  });
 
-  updateOverviewViewport();
+  updateActiveStep();
 }
 
-function updateOverviewViewport() {
+// Highlight the outline row for the step currently at the top of the viewport.
+function updateActiveStep() {
   if (overviewEl.hidden) return;
-  const docHeight = document.documentElement.scrollHeight;
-  const railHeight = overviewEl.clientHeight;
-  overviewViewportEl.style.top = `${(window.scrollY / docHeight) * railHeight}px`;
-  overviewViewportEl.style.height = `${(window.innerHeight / docHeight) * railHeight}px`;
+  const steps = [...bufferEl.querySelectorAll(".step")];
+  let activeId = steps[0]?.dataset.stepId;
+  for (const step of steps) {
+    if (step.getBoundingClientRect().top <= 80) activeId = step.dataset.stepId;
+  }
+  overviewEl.querySelectorAll(".ov-row").forEach((row) => {
+    row.classList.toggle("active", row.dataset.stepId === activeId);
+  });
 }
 
 function renderDocumentLead() {
