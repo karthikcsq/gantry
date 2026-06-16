@@ -53,8 +53,30 @@ async function openSlug(nextSlug) {
 
   slug = nextSlug;
   model = data;
+  indexModel(model);
   render();
   summarizeLint(data.lint);
+}
+
+// Rebuild the flat AI-step/fork lists from the block tree so every list shares
+// the same object references the renderer mutates on click. The server sends
+// flat copies too, but JSON has no shared refs — driving everything off `blocks`
+// keeps one source of truth for collectUpdates.
+function indexModel(target) {
+  const aiSteps = [];
+  const forks = [];
+  for (const block of target.blocks ?? []) {
+    if (block.kind === "step" && block.author === "ai") {
+      aiSteps.push(block);
+    } else if (block.kind === "fork") {
+      forks.push(block);
+      for (const path of block.paths ?? []) {
+        for (const step of path.steps ?? []) aiSteps.push(step);
+      }
+    }
+  }
+  target.aiSteps = aiSteps;
+  target.forks = forks;
 }
 
 async function save() {
@@ -73,6 +95,7 @@ async function save() {
   }
 
   model = { slug, ...data.doc };
+  indexModel(model);
   render();
   setStatus("saved", "ok");
 }
@@ -100,11 +123,15 @@ function render() {
 
   renderDocumentLead();
 
-  // Drafting state: no AI items yet. Offer one freeform pseudocode field so a
-  // freshly scaffolded doc can be authored loosely. Once annotations exist, the
-  // per-step gate view below takes over.
+  // Three rendering states:
+  //  • drafting   — no AI content yet → one freeform field.
+  //  • approval   — AI drafted steps/forks → pseudocode steps you approve,
+  //                 plus the forks you must decide.
+  //  • annotation — ref/edge/feat/ripple items exist → per-step gate view.
   if (isDraftingMode()) {
     bufferEl.append(renderFreeform());
+  } else if (isApprovalMode()) {
+    renderApproval();
   } else {
     model.steps.forEach((step, index) => {
       const stepItems = itemsByStep.get(step.id) ?? [];
@@ -139,7 +166,8 @@ function buildOverview() {
   const scrollable = document.documentElement.scrollHeight > window.innerHeight + 8;
   // The outline maps to per-step DOM; in freeform drafting there are no step
   // elements to jump to, so hide it.
-  overviewEl.hidden = !scrollable || !model || model.steps.length === 0 || isDraftingMode();
+  overviewEl.hidden =
+    !scrollable || !model || model.steps.length === 0 || isDraftingMode() || isApprovalMode();
   bufferEl.classList.toggle("with-outline", !overviewEl.hidden);
   if (overviewEl.hidden) return;
 
@@ -211,7 +239,17 @@ function renderDocumentLead() {
   if (targetLine) {
     bufferEl.append(metaRow("Target", targetLine.replace(/^\*\*Target:\*\*\s*/, "").trim()));
   }
-  bufferEl.append(sectionHeader("Pseudocode", isDraftingMode() ? undefined : model.steps.length));
+  bufferEl.append(sectionHeader("Pseudocode", sectionCount()));
+}
+
+// The count chip next to the "Pseudocode" header: step count in annotation mode,
+// step+fork count in approval mode, nothing while drafting.
+function sectionCount() {
+  if (isDraftingMode()) return undefined;
+  if (isApprovalMode()) {
+    return (model.blocks ?? []).filter((block) => block.kind === "step").length + (model.forks?.length ?? 0);
+  }
+  return model.steps.length;
 }
 
 function docTitle(text) {
@@ -265,10 +303,21 @@ function slugName() {
   return (slug || "untitled").replace(/\.md$/i, "");
 }
 
-// Drafting mode = a doc with no AI items yet. This is the "author a new doc"
-// state: the engineer writes freeform pseudocode before asking AI to annotate.
+// Drafting mode = a doc with no AI content at all. This is the "author a new
+// doc" state: the engineer writes freeform pseudocode before asking AI to draft
+// or annotate.
 function isDraftingMode() {
-  return Boolean(model) && model.items.length === 0;
+  return Boolean(model) && model.items.length === 0 && !hasDraftContent();
+}
+
+// Approval mode = AI has drafted pseudocode (steps and/or forks) and the
+// engineer hasn't moved on to the annotation pass yet.
+function isApprovalMode() {
+  return Boolean(model) && model.items.length === 0 && hasDraftContent();
+}
+
+function hasDraftContent() {
+  return Boolean(model) && ((model.aiSteps?.length ?? 0) > 0 || (model.forks?.length ?? 0) > 0);
 }
 
 // A single freeform field for the whole Pseudocode section. The engineer writes
@@ -313,6 +362,354 @@ function pseudocodeBody(markdown) {
     .trim();
 }
 
+// ---- Approval mode: pseudocode steps you approve + forks you decide ---------
+
+// Every line is a step. A user step is already approved and renders plainly; an
+// AI step is identical except it carries accept/reject/edit controls until you
+// resolve it. Steps are numbered in document order; forks sit inline; a run of
+// consecutive AI steps shares one block-scoped "approve all".
+function renderApproval() {
+  const blocks = model.blocks ?? [];
+  let number = 0;
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i];
+    if (block.kind === "fork") {
+      bufferEl.append(renderForkBlock(block));
+      i += 1;
+      continue;
+    }
+    if (block.author === "ai") {
+      const run = [];
+      while (i < blocks.length && blocks[i].kind === "step" && blocks[i].author === "ai") {
+        run.push(blocks[i]);
+        i += 1;
+      }
+      bufferEl.append(renderStepRun(run, number + 1));
+      number += run.length;
+    } else {
+      number += 1;
+      bufferEl.append(renderApprovalStep(block, number));
+      i += 1;
+    }
+  }
+}
+
+// A contiguous run of AI steps gets ONE approve-all, scoped to just this block —
+// never the whole doc. Steps still number continuously with the rest.
+function renderStepRun(run, startNumber) {
+  const wrap = document.createElement("section");
+  wrap.className = "step-run";
+
+  const pending = run.filter((step) => effectiveStepStatus(step) === "open").length;
+  const head = document.createElement("div");
+  head.className = "run-head";
+  const approveAll = document.createElement("button");
+  approveAll.type = "button";
+  approveAll.className = "approve-all";
+  approveAll.textContent = pending ? `Approve all (${pending})` : "All resolved";
+  approveAll.disabled = pending === 0;
+  approveAll.addEventListener("click", () => {
+    for (const step of run) {
+      if (effectiveStepStatus(step) === "open") step.status = "accept";
+    }
+    render();
+  });
+  head.append(approveAll);
+  wrap.append(head);
+
+  run.forEach((step, idx) => wrap.append(renderApprovalStep(step, startNumber + idx)));
+  return wrap;
+}
+
+// One step. Renders exactly like a normal numbered pseudocode step. The only
+// difference for an AI step: accept ✓ / reject × controls in the gutter and a
+// comment box (a non-empty comment is a proposed edit). User steps get neither —
+// they're already the engineer's design. Pass number=null for a path-nested step.
+function renderApprovalStep(step, number) {
+  const block = document.createElement("section");
+  block.className = "step";
+  block.dataset.stepId = step.id;
+  const ai = step.author === "ai";
+  if (ai) {
+    block.classList.add("ai");
+    block.dataset.status = effectiveStepStatus(step);
+  }
+
+  const stepLine = document.createElement("div");
+  stepLine.className = "step-line";
+
+  if (ai) {
+    const controls = document.createElement("div");
+    controls.className = "controls";
+    controls.append(stepStatusButton("accept", step), stepStatusButton("reject", step));
+    stepLine.append(controls);
+  }
+
+  // Top-level steps are numbered; path-nested steps (number=null) carry no
+  // number or bullet — they read as the body of the path they sit under.
+  if (number != null) {
+    const num = document.createElement("span");
+    num.className = "md-number";
+    num.textContent = `${number}`;
+    stepLine.append(num);
+  }
+
+  const text = document.createElement("textarea");
+  text.dataset.field = ai ? "ai-step-text" : "user-step-text";
+  text.dataset.stepId = step.id;
+  text.setAttribute("aria-label", `Step ${number ?? ""}`);
+  text.value = withoutNumber(step.text);
+  autosize(text);
+  text.addEventListener("input", () => {
+    autosize(text);
+    step.text = text.value;
+  });
+  stepLine.append(text);
+  block.append(stepLine);
+
+  if (ai) {
+    const comments = document.createElement("textarea");
+    comments.className = "comments";
+    comments.dataset.field = "step-comments";
+    comments.setAttribute("aria-label", "Step comments");
+    comments.placeholder = "Add a comment or proposed edit…";
+    comments.value = (step.comments ?? []).join("\n");
+    autosize(comments);
+    comments.addEventListener("input", () => {
+      autosize(comments);
+      step.comments = comments.value.split("\n").map((line) => line.trim()).filter(Boolean);
+      // Update state in place — re-rendering would steal focus mid-type.
+      const effective = effectiveStepStatus(step);
+      block.dataset.status = effective;
+      block.querySelectorAll(".step-line .decision").forEach((control) => {
+        control.classList.toggle("active", control.dataset.status === effective);
+      });
+      renderGate();
+    });
+    block.append(comments);
+  }
+  return block;
+}
+
+// Mirrors effectiveStatus for items: accept/reject win; otherwise a non-empty
+// comment is a proposed edit; otherwise the step is still open.
+function effectiveStepStatus(step) {
+  if (step.status === "accept" || step.status === "reject") return step.status;
+  return (step.comments ?? []).some((comment) => comment.trim().length > 0) ? "edit" : "open";
+}
+
+function stepStatusButton(nextStatus, step) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `decision ${nextStatus}`;
+  button.dataset.status = nextStatus;
+  button.textContent = nextStatus === "accept" ? "✓" : "×";
+  button.title = nextStatus === "accept" ? "Approve" : "Reject";
+  button.setAttribute("aria-label", button.title);
+  button.classList.toggle("active", nextStatus === effectiveStepStatus(step));
+  button.addEventListener("click", () => {
+    step.status = step.status === nextStatus ? "open" : nextStatus;
+    render();
+  });
+  return button;
+}
+
+// A fork: the branch decision. Header carries the question + a "drop fork"
+// reject that collapses every path under it. Unresolved until a path is picked.
+function renderForkBlock(fork) {
+  const wrap = document.createElement("section");
+  wrap.className = "fork";
+  wrap.dataset.forkId = fork.id;
+  wrap.dataset.status = forkStateName(fork);
+
+  const head = document.createElement("div");
+  head.className = "fork-head";
+  const chip = document.createElement("span");
+  chip.className = "fork-chip";
+  chip.textContent = "fork";
+  head.append(chip);
+
+  const title = document.createElement("textarea");
+  title.dataset.field = "fork-title";
+  title.setAttribute("aria-label", "Fork question");
+  title.value = fork.title;
+  autosize(title);
+  title.addEventListener("input", () => {
+    autosize(title);
+    fork.title = title.value;
+  });
+  head.append(title);
+
+  const drop = document.createElement("button");
+  drop.type = "button";
+  drop.className = "fork-drop";
+  const dropped = fork.status === "reject";
+  drop.textContent = dropped ? "Undo drop" : "Drop fork";
+  drop.title = dropped
+    ? "Restore this fork"
+    : "Reject the whole fork and everything under it";
+  drop.addEventListener("click", () => {
+    if (fork.status === "reject") {
+      fork.status = "open";
+      for (const path of fork.paths) path.status = "open";
+    } else {
+      fork.status = "reject";
+      for (const path of fork.paths) path.status = "reject";
+    }
+    render();
+  });
+  head.append(drop);
+  wrap.append(head);
+
+  const paths = document.createElement("div");
+  paths.className = "paths";
+  fork.paths.forEach((path, index) => paths.append(renderPath(fork, path, index)));
+  wrap.append(paths);
+
+  // Propose a different path. A non-empty comment resolves the fork (edit) — the
+  // engineer is saying "none of these, do this instead." It does NOT auto-pick
+  // a remaining option.
+  const comments = document.createElement("textarea");
+  comments.className = "comments fork-comment";
+  comments.dataset.field = "fork-comments";
+  comments.setAttribute("aria-label", "Propose another path");
+  comments.placeholder = "Propose another path…";
+  comments.value = (fork.comments ?? []).join("\n");
+  autosize(comments);
+  comments.addEventListener("input", () => {
+    autosize(comments);
+    fork.comments = comments.value.split("\n").map((line) => line.trim()).filter(Boolean);
+    wrap.dataset.status = forkStateName(fork);
+    renderGate();
+  });
+  wrap.append(comments);
+  return wrap;
+}
+
+// One branch of a fork. Pick promotes it (and rejects siblings); reject collapses
+// it. Rejecting one path no longer auto-picks the other — you may reject both and
+// propose a third in the fork comment. A rejected path collapses to its title.
+function renderPath(fork, path, index) {
+  const key = String.fromCharCode(65 + index);
+  const isPicked = path.status === "pick";
+  const isRejected = path.status === "reject";
+
+  const sec = document.createElement("section");
+  sec.className = "path";
+  sec.dataset.pathId = path.id;
+  sec.dataset.status = isPicked ? "pick" : isRejected ? "reject" : "open";
+  if (isRejected) sec.classList.add("collapsed");
+
+  const head = document.createElement("div");
+  head.className = "path-head";
+
+  const pick = document.createElement("button");
+  pick.type = "button";
+  pick.className = "path-pick";
+  pick.textContent = "✓";
+  pick.title = "Pick this path";
+  pick.classList.toggle("active", isPicked);
+  pick.addEventListener("click", () => choosePath(fork, path, "pick"));
+
+  const reject = document.createElement("button");
+  reject.type = "button";
+  reject.className = "path-reject";
+  reject.textContent = "×";
+  reject.title = "Reject this path";
+  reject.classList.toggle("active", isRejected);
+  reject.addEventListener("click", () => choosePath(fork, path, "reject"));
+  head.append(pick, reject);
+
+  // The option's key (A/B/C…) as a highlighted chip, like the "fork" chip — so
+  // each option reads as a distinct labelled branch, not just prose.
+  const chip = document.createElement("span");
+  chip.className = "path-chip";
+  chip.textContent = key;
+  head.append(chip);
+
+  const title = document.createElement("textarea");
+  title.dataset.field = "path-title";
+  title.setAttribute("aria-label", `Path ${key}`);
+  title.value = stripPathKey(path.title);
+  autosize(title);
+  title.addEventListener("input", () => {
+    autosize(title);
+    path.title = title.value;
+  });
+  head.append(title);
+
+  const expand = document.createElement("button");
+  expand.type = "button";
+  expand.className = "path-expand";
+  expand.textContent = "▸";
+  expand.title = "Show / hide this path";
+  expand.addEventListener("click", () => sec.classList.toggle("collapsed"));
+  head.append(expand);
+  sec.append(head);
+
+  const body = document.createElement("div");
+  body.className = "path-body";
+  const steps = path.steps ?? [];
+  if (steps.length === 0) {
+    body.append(line("plain", "(no steps under this path yet)"));
+  } else {
+    for (const step of steps) body.append(renderApprovalStep(step, null));
+  }
+  sec.append(body);
+  return sec;
+}
+
+// Resolve a fork. Picking a path rejects its siblings. Rejecting a path collapses
+// ONLY that path — it never auto-picks a survivor, so you can reject every option
+// and propose a new one in the fork comment. Re-clicking a selected control
+// returns it to open. fork.status tracks the picked path id (or open).
+function choosePath(fork, path, action) {
+  if (action === "pick") {
+    if (path.status === "pick") {
+      fork.status = "open";
+      for (const candidate of fork.paths) candidate.status = "open";
+    } else {
+      fork.status = path.id;
+      for (const candidate of fork.paths) {
+        candidate.status = candidate.id === path.id ? "pick" : "reject";
+      }
+    }
+  } else {
+    path.status = path.status === "reject" ? "open" : "reject";
+    // Fork is "picked" only if some path is explicitly pick; otherwise open.
+    const picked = fork.paths.find((candidate) => candidate.status === "pick");
+    fork.status = picked ? picked.id : "open";
+  }
+  render();
+}
+
+// A fork resolves by picking a path, dropping it, or proposing a different path
+// in a comment (edit). Anything else is still open and blocks the gate.
+function effectiveForkStatus(fork) {
+  if (fork.paths.some((path) => path.id === fork.status)) return "pick";
+  if (fork.status === "reject") return "drop";
+  if ((fork.comments ?? []).some((comment) => comment.trim().length > 0)) return "edit";
+  return "open";
+}
+
+function forkStateName(fork) {
+  const resolution = effectiveForkStatus(fork);
+  return resolution === "open"
+    ? "open"
+    : resolution === "drop"
+    ? "dropped"
+    : resolution === "edit"
+    ? "proposed"
+    : "resolved";
+}
+
+// Strip a leading option key ("A — ", "B: ", "C -") from a path title — the key
+// now lives in the chip, so the title is just the description.
+function stripPathKey(title) {
+  return (title ?? "").replace(/^\s*[A-Za-z]\s*[—–:-]\s+/, "").trim();
+}
+
 function renderStep(step, index, stepItems) {
   const block = document.createElement("section");
   block.className = "step";
@@ -323,7 +720,7 @@ function renderStep(step, index, stepItems) {
 
   const number = document.createElement("span");
   number.className = "md-number";
-  number.textContent = `${index + 1}.`;
+  number.textContent = `${index + 1}`;
   stepLine.append(number);
 
   const text = document.createElement("textarea");
@@ -491,6 +888,40 @@ function collectUpdates() {
     return { slug, pseudocode: freeform.value };
   }
 
+  // Approval mode: AI steps carry status + text + comments; user steps carry
+  // text; forks/paths carry resolution + title. The block tree is the source of
+  // truth (mutated on click/input).
+  if (isApprovalMode()) {
+    return {
+      slug,
+      steps: (model.blocks ?? [])
+        .filter((block) => block.kind === "step" && block.author === "user")
+        .map((block) => ({ id: block.id, text: block.text })),
+      aiSteps: model.aiSteps.map((step) => ({
+        id: step.id,
+        text: step.text,
+        status: effectiveStepStatus(step),
+        comments: step.comments ?? [],
+      })),
+      forks: model.forks.map((fork) => ({
+        id: fork.id,
+        // Persist "edit" when the fork is resolved by a proposed-path comment;
+        // otherwise the picked-path id, "reject", or "open".
+        status: effectiveForkStatus(fork) === "edit" ? "edit" : fork.status,
+        title: fork.title,
+        comments: fork.comments ?? [],
+      })),
+      paths: model.forks.flatMap((fork) =>
+        fork.paths.map((path) => ({
+          id: path.id,
+          status: path.status,
+          title: path.title,
+          forkId: fork.id,
+        })),
+      ),
+    };
+  }
+
   const steps = [...document.querySelectorAll(".step")].map((step, index) => ({
     id: step.dataset.stepId,
     text: `${index + 1}. ${step.querySelector('[data-field="step-text"]').value.trim()}`,
@@ -522,9 +953,14 @@ function setStatus(message, kind) {
 }
 
 function modelStats() {
-  const open = model.items.filter((item) => effectiveStatus(item) === "open").length;
-  const resolved = model.items.length - open;
-  return { steps: model.steps.length, total: model.items.length, resolved, open };
+  const aiSteps = model.aiSteps ?? [];
+  const forks = model.forks ?? [];
+  const openItems = model.items.filter((item) => effectiveStatus(item) === "open").length;
+  const openSteps = aiSteps.filter((step) => effectiveStepStatus(step) === "open").length;
+  const openForks = forks.filter((fork) => effectiveForkStatus(fork) === "open").length;
+  const open = openItems + openSteps + openForks;
+  const total = model.items.length + aiSteps.length + forks.length;
+  return { steps: model.steps.length, total, resolved: total - open, open };
 }
 
 function line(className, text) {

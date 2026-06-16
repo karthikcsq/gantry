@@ -3,7 +3,8 @@
 #
 # Currently supported:
 #   - Claude Code  (target: $TARGET_ROOT/.claude/skills/gantry)
-#   - Codex        (target: $TARGET_ROOT/.agents/skills/gantry)
+#   - Codex        (target: $TARGET_ROOT/.codex/skills/gantry;
+#                   also $TARGET_ROOT/.agents/skills/gantry for older installs)
 #
 # Default behavior: detect installed agents, install at user level via symlink.
 # Falls back to copy if symlinks are not permitted (e.g., Windows without
@@ -26,9 +27,10 @@ Usage: ./install.sh [options]
 Scope:
   --user                Install at user level (default)
                           Claude: ~/.claude/skills/gantry
-                          Codex:  ~/.agents/skills/gantry
+                          Codex:  ~/.codex/skills/gantry
+                                  ~/.agents/skills/gantry when present
   --project <path>      Install at project level under <path>/.claude/skills
-                        and <path>/.agents/skills.
+                        and <path>/.codex/skills.
 
 Agent selection:
   --claude              Force install for Claude Code
@@ -65,21 +67,85 @@ if [[ ! -d "$SKILL_SRC" ]]; then
   exit 1
 fi
 
+path_from_windows_env() {
+  local win_path="$1"
+  if [[ -z "$win_path" ]]; then
+    return 1
+  fi
+
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -u "$win_path"
+    return 0
+  fi
+
+  if [[ "$win_path" =~ ^([A-Za-z]):\\(.*)$ ]]; then
+    local drive="${BASH_REMATCH[1],,}"
+    local rest="${BASH_REMATCH[2]//\\//}"
+    echo "/mnt/$drive/$rest"
+    return 0
+  fi
+
+  return 1
+}
+
+windows_path_from_unix() {
+  local unix_path="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$unix_path"
+    return 0
+  fi
+
+  if [[ "$unix_path" =~ ^/mnt/([A-Za-z])/(.*)$ ]]; then
+    local drive="${BASH_REMATCH[1]^^}"
+    local rest="${BASH_REMATCH[2]//\//\\}"
+    echo "${drive}:\\${rest}"
+    return 0
+  fi
+
+  return 1
+}
+
+resolve_user_home() {
+  # When this script is run from WSL against a Windows checkout, $HOME points at
+  # the Linux user (e.g. /home/name) while Claude/Codex load skills from the
+  # Windows user home. Prefer the Windows home in that case.
+  if [[ "$SCRIPT_DIR" =~ ^/mnt/([A-Za-z])/Users/([^/]+)/ ]]; then
+    echo "/mnt/${BASH_REMATCH[1],,}/Users/${BASH_REMATCH[2]}"
+    return
+  fi
+
+  if [[ -n "${USERPROFILE:-}" ]]; then
+    if home_from_userprofile="$(path_from_windows_env "$USERPROFILE")"; then
+      if [[ -d "$home_from_userprofile" ]]; then
+        echo "$home_from_userprofile"
+        return
+      fi
+    fi
+  fi
+
+  echo "$HOME"
+}
+
+USER_HOME="$(resolve_user_home)"
+
 # Resolve target roots
 if [[ "$SCOPE" == "user" ]]; then
-  CLAUDE_ROOT="$HOME/.claude/skills"
-  CODEX_ROOT="$HOME/.agents/skills"
+  CLAUDE_ROOTS=("$USER_HOME/.claude/skills")
+  CODEX_ROOTS=("$USER_HOME/.codex/skills")
+  if [[ -d "$USER_HOME/.agents" ]]; then
+    CODEX_ROOTS+=("$USER_HOME/.agents/skills")
+  fi
 else
-  CLAUDE_ROOT="$PROJECT_PATH/.claude/skills"
-  CODEX_ROOT="$PROJECT_PATH/.agents/skills"
+  CLAUDE_ROOTS=("$PROJECT_PATH/.claude/skills")
+  CODEX_ROOTS=("$PROJECT_PATH/.codex/skills")
 fi
 
 # Auto-detect agents if not explicitly set
 detect_claude() {
-  [[ -d "$HOME/.claude" ]] || command -v claude >/dev/null 2>&1
+  [[ -d "$USER_HOME/.claude" ]] || command -v claude >/dev/null 2>&1
 }
 detect_codex() {
-  [[ -d "$HOME/.codex" ]] || [[ -d "$HOME/.agents" ]] || command -v codex >/dev/null 2>&1
+  [[ -d "$USER_HOME/.codex" ]] || [[ -d "$USER_HOME/.agents" ]] || command -v codex >/dev/null 2>&1
 }
 
 if [[ "$INSTALL_CLAUDE" == "auto" ]]; then
@@ -93,22 +159,71 @@ install_to() {
   local target_root="$1"
   local agent_name="$2"
   local target="$target_root/gantry"
+  local source_real
 
   mkdir -p "$target_root"
+  source_real="$(realpath "$SKILL_SRC")"
 
   if [[ -e "$target" || -L "$target" ]]; then
-    rm -rf "$target"
+    if target_real="$(realpath "$target" 2>/dev/null)"; then
+      if [[ "$target_real" == "$source_real" ]]; then
+        if [[ "$target" =~ ^/mnt/[A-Za-z]/ ]] && command -v cmd.exe >/dev/null 2>&1; then
+          if windows_target_has_payload "$target"; then
+            echo "  $agent_name: already linked $target -> $SKILL_SRC"
+            return
+          fi
+        else
+          echo "  $agent_name: already linked $target -> $SKILL_SRC"
+          return
+        fi
+      fi
+    fi
+    remove_target "$target"
   fi
 
   # Prefer symlink so future pulls of this repo update the installed skill.
   # Fall back to copy if the platform doesn't allow symlinks (Windows without
   # developer mode, restricted filesystems).
-  if ln -s "$SKILL_SRC" "$target" 2>/dev/null; then
+  if link_skill "$target"; then
     echo "  $agent_name: linked $target -> $SKILL_SRC"
   else
     cp -r "$SKILL_SRC" "$target"
     echo "  $agent_name: copied to $target"
     echo "    (symlink not permitted; re-run install.sh after pulling updates)"
+  fi
+}
+
+remove_target() {
+  local target="$1"
+  if [[ "$target" =~ ^/mnt/[A-Za-z]/ ]] && command -v cmd.exe >/dev/null 2>&1; then
+    if target_win="$(windows_path_from_unix "$target")"; then
+      cmd.exe /C rmdir /S /Q "$target_win" >/dev/null 2>&1 || cmd.exe /C del /F /Q "$target_win" >/dev/null 2>&1 || rm -rf "$target"
+      return
+    fi
+  fi
+  rm -rf "$target"
+}
+
+link_skill() {
+  local target="$1"
+  # WSL symlinks/junctions into /mnt/c can be visible to WSL but unreadable to
+  # Windows-native Claude/Codex. In that case prefer the copy fallback so the
+  # complete skill payload is installed beside SKILL.md.
+  if [[ "$target" =~ ^/mnt/[A-Za-z]/ ]]; then
+    return 1
+  fi
+
+  ln -s "$SKILL_SRC" "$target" 2>/dev/null
+}
+
+windows_target_has_payload() {
+  local target="$1"
+  local target_win
+  target_win="$(windows_path_from_unix "$target")" || return 1
+  if command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command 'if (Test-Path -LiteralPath (Join-Path $args[0] "scripts\gantry-editor.mjs")) { exit 0 } else { exit 1 }' "$target_win" >/dev/null 2>&1
+  else
+    cmd.exe /C if exist "$target_win\\scripts\\gantry-editor.mjs" exit /B 0 else exit /B 1 >/dev/null 2>&1
   fi
 }
 
@@ -118,13 +233,17 @@ echo "  scope:  $SCOPE${PROJECT_PATH:+ ($PROJECT_PATH)}"
 echo
 
 if [[ "$INSTALL_CLAUDE" == "yes" ]]; then
-  install_to "$CLAUDE_ROOT" "Claude Code"
+  for root in "${CLAUDE_ROOTS[@]}"; do
+    install_to "$root" "Claude Code"
+  done
 else
   echo "  Claude Code: skipped"
 fi
 
 if [[ "$INSTALL_CODEX" == "yes" ]]; then
-  install_to "$CODEX_ROOT" "Codex"
+  for root in "${CODEX_ROOTS[@]}"; do
+    install_to "$root" "Codex"
+  done
 else
   echo "  Codex: skipped"
 fi

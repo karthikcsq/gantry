@@ -124,7 +124,7 @@ textarea:focus-visible {
 
 .buffer {
   min-height: 100vh;
-  padding: 50px 30px 48px 18px;
+  padding: 54px 34px 56px 30px;
 }
 
 /* reserve room for the outline pane only while it is shown */
@@ -248,23 +248,31 @@ textarea::placeholder {
 /* ── pseudocode steps ──────────────────────────────────────── */
 
 .step {
-  margin-top: 3px;
+  margin: 6px 0;
 }
 
 .step-line {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
+/* Step number as a small badge so steps read as distinct, numbered units. */
 .md-number {
-  flex: 0 0 24px;
-  text-align: right;
-  color: var(--muted);
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--blue) 16%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line-strong));
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   user-select: none;
-  padding-top: 1px;
-  opacity: 0.85;
 }
 
 .step-line textarea {
@@ -308,7 +316,7 @@ textarea::placeholder {
 
 .controls {
   display: inline-flex;
-  gap: 3px;
+  gap: 5px;
   flex: 0 0 auto;
   padding-top: 1px;
 }
@@ -654,4 +662,308 @@ textarea::placeholder {
   .topbar-brand {
     display: none;
   }
+}
+
+/* ══ approval mode: pseudocode steps + forks ═══════════════════ */
+
+/* A run of AI steps shares one block-scoped approve-all header. */
+.step-run {
+  margin: 22px 0 8px;
+}
+.step-run:first-child {
+  margin-top: 8px;
+}
+.step-run .step {
+  margin: 9px 0;
+}
+
+/* approve-all sits on the LEFT, above its run, with room to breathe */
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px 0;
+}
+
+.approve-all {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+  border-radius: 5px;
+  padding: 5px 14px;
+}
+.approve-all:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--green) 22%, transparent);
+}
+.approve-all:disabled {
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--line);
+}
+
+/* An AI step is a normal step + an accept/reject control gutter and a comment
+   box. The whole cell is tinted by its state so resolution is obvious at a
+   glance: open = blue, accept = green, reject = red, edit = yellow. */
+.step.ai .step-line {
+  align-items: flex-start;
+}
+.step.ai {
+  border-left: 2px solid transparent;
+  margin-left: -10px;
+  padding: 4px 10px 6px 8px;
+  border-radius: 0 5px 5px 0;
+}
+/* open: a plain cell, no tint — only resolved states get a highlight */
+.step.ai[data-status="open"] {
+  border-left-color: transparent;
+  background: transparent;
+}
+.step.ai[data-status="accept"] {
+  border-left-color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+.step.ai[data-status="reject"] {
+  border-left-color: var(--red);
+  background: color-mix(in srgb, var(--red) 9%, transparent);
+}
+.step.ai[data-status="edit"] {
+  border-left-color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 11%, transparent);
+}
+
+/* the number badge takes the cell's state color: open = blue (default),
+   accept = green, reject = red, edit = yellow */
+.step.ai[data-status="accept"] .md-number {
+  background: color-mix(in srgb, var(--green) 16%, var(--panel));
+  border-color: color-mix(in srgb, var(--green) 30%, var(--line-strong));
+  color: var(--green);
+}
+.step.ai[data-status="reject"] .md-number {
+  background: color-mix(in srgb, var(--red) 16%, var(--panel));
+  border-color: color-mix(in srgb, var(--red) 30%, var(--line-strong));
+  color: var(--red);
+}
+.step.ai[data-status="edit"] .md-number {
+  background: color-mix(in srgb, var(--yellow) 16%, var(--panel));
+  border-color: color-mix(in srgb, var(--yellow) 30%, var(--line-strong));
+  color: var(--yellow);
+}
+/* align the comment box under the step text (past controls + number badge) */
+.step.ai .comments {
+  margin-left: 74px;
+  width: calc(100% - 74px);
+}
+
+/* ── fork: the branch decision ─────────────────────────────── */
+
+.fork {
+  /* left edge lines up with the AI steps' accent rule (they sit at margin-left
+     -10px), so the fork reads as a sibling of the steps, not an indented box. */
+  margin: 22px 0 22px -10px;
+  border: 1px solid var(--line-strong);
+  border-left-width: 2px;
+  border-left-color: var(--purple);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 14px 14px;
+  background: color-mix(in srgb, var(--purple) 5%, transparent);
+}
+/* the fork keeps its purple identity (left rule + chip) in every state; only the
+   cell tint follows the step scheme: pick = green, drop = red, propose = yellow */
+.fork[data-status="resolved"] {
+  background: color-mix(in srgb, var(--green) 9%, transparent);
+}
+.fork[data-status="dropped"] {
+  background: color-mix(in srgb, var(--red) 9%, transparent);
+}
+
+.fork-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+.fork-chip {
+  flex: 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-top: 1px;
+  background: color-mix(in srgb, var(--purple) 20%, transparent);
+  color: var(--purple);
+}
+.fork-head textarea {
+  flex: 1 1 220px;
+  color: var(--ink-bright);
+  font-weight: 600;
+}
+.fork-drop {
+  flex: 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 1px 8px;
+  margin-top: 1px;
+}
+.fork-drop:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+.fork[data-status="dropped"] .fork-drop {
+  color: var(--green);
+  border-color: var(--line-strong);
+}
+.fork[data-status="dropped"] .fork-drop:hover {
+  border-color: var(--green);
+}
+
+/* propose-another-path box at the bottom of the fork */
+.fork-comment {
+  margin: 9px 0 0;
+  width: 100%;
+  color: var(--ink);
+}
+.fork[data-status="proposed"] {
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+}
+
+/* ── path: one branch of a fork ────────────────────────────── */
+
+.paths {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* the option key (A/B/C) as a highlighted tag, like the fork chip */
+.path-chip {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-top: 1px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--tan) 20%, transparent);
+  color: var(--tan);
+}
+.path[data-status="pick"] .path-chip {
+  background: color-mix(in srgb, var(--green) 22%, transparent);
+  color: var(--green);
+}
+.path[data-status="reject"] .path-chip {
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+  color: var(--muted);
+}
+
+.path {
+  border-left: 2px solid var(--line-strong);
+  border-radius: 0 4px 4px 0;
+  padding: 5px 0 7px 11px;
+  margin-left: 4px;
+}
+.path[data-status="pick"] {
+  border-left-color: var(--green);
+}
+.path[data-status="reject"] {
+  border-left-color: var(--line);
+  opacity: 0.55;
+}
+
+.path-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.path-head textarea {
+  flex: 1 1 200px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.path-pick,
+.path-reject {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+}
+/* always colored — pick reads green, reject reads red, like item controls */
+.path-pick {
+  color: var(--green);
+}
+.path-reject {
+  color: var(--red);
+}
+.path-pick:hover {
+  border-color: var(--green);
+}
+.path-reject:hover {
+  border-color: var(--red);
+}
+.path-pick.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #04130d;
+}
+.path-reject.active {
+  background: var(--red);
+  border-color: var(--red);
+  color: #1a0606;
+}
+
+.path-expand {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0;
+  transition: transform 0.1s ease;
+}
+.path:not(.collapsed) .path-expand {
+  transform: rotate(90deg);
+}
+
+.path-body {
+  margin-top: 3px;
+}
+/* collapse hides the branch's contents — you stop worrying about what's under
+   a rejected path; the chevron in the head pops it back open. */
+.path.collapsed .path-body {
+  display: none;
+}
+/* steps nested under a path sit tighter than top-level ones, and have no number
+   badge — so their comment box aligns just past the accept/reject controls */
+.path .step.ai {
+  margin-left: -4px;
+}
+.path .step.ai .comments {
+  margin-left: 48px;
+  width: calc(100% - 48px);
 }

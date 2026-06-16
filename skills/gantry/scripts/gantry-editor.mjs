@@ -120,6 +120,9 @@ function modelFromMarkdown(markdown) {
     markdown,
     steps: parsed.steps,
     items: parsed.items,
+    aiSteps: parsed.aiSteps,
+    forks: parsed.forks,
+    blocks: parsed.blocks,
     lint: lintGantryMarkdown(markdown).errors,
   };
 }

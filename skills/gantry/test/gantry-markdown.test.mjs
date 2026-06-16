@@ -46,9 +46,135 @@ const emptyScaffold = `# vendor-search
 <empty until code-write phase>
 `;
 
+const draftMarkdown = `# clean-cut
+
+**Target:** tighten a talking-head video
+
+## Pseudocode
+
+<!-- gantry:step id=gty-cc-args author=ai status=open -->
+Parse args; require ffmpeg + whisper.
+<!-- gantry:fork id=gty-cc-takes status=open -->
+fork: Detect & cut repeated takes?
+<!-- gantry:path id=gty-cc-takes-a fork=gty-cc-takes status=open -->
+path: A — LLM adjudication
+<!-- gantry:step id=gty-cc-a1 author=ai status=open path=gty-cc-takes-a -->
+Cluster restarts → emit cuts.
+<!-- gantry:path id=gty-cc-takes-b fork=gty-cc-takes status=open -->
+path: B — deterministic fuzzy n-gram
+<!-- gantry:step id=gty-cc-b1 author=ai status=open path=gty-cc-takes-b -->
+Slide window → cut earlier span.
+<!-- gantry:step id=gty-cc-render author=ai status=open -->
+Merge cuts → render one pass.
+
+## Code (as written 2026-06-16 @ none)
+
+empty
+`;
+
 test("round-trips unchanged markdown when no updates are applied", () => {
   const parsed = parseGantryMarkdown(validMarkdown);
   assert.equal(serializeGantryMarkdown(parsed, {}), validMarkdown);
+});
+
+test("round-trips a givens/forks draft unchanged", () => {
+  const parsed = parseGantryMarkdown(draftMarkdown);
+  assert.equal(serializeGantryMarkdown(parsed, {}), draftMarkdown);
+});
+
+test("parses givens, forks, and nested paths into ordered blocks", () => {
+  const parsed = parseGantryMarkdown(draftMarkdown);
+  assert.equal(parsed.aiSteps.length, 4);
+  assert.equal(parsed.forks.length, 1);
+
+  const fork = parsed.forks[0];
+  assert.equal(fork.id, "gty-cc-takes");
+  assert.equal(fork.status, "open");
+  assert.equal(fork.paths.length, 2);
+  assert.equal(fork.paths[0].id, "gty-cc-takes-a");
+  assert.equal(fork.paths[0].steps.length, 1);
+  assert.equal(fork.paths[0].steps[0].id, "gty-cc-a1");
+
+  // Top-level blocks: step, fork, step (path-nested steps stay under the fork).
+  assert.deepEqual(parsed.blocks.map((b) => b.kind), ["step", "fork", "step"]);
+});
+
+test("AI steps accept, reject, and edit (comment) the same way items do", () => {
+  const parsed = parseGantryMarkdown(draftMarkdown);
+  const next = serializeGantryMarkdown(parsed, {
+    aiSteps: [
+      { id: "gty-cc-args", status: "accept" },
+      { id: "gty-cc-render", status: "edit", comments: ["render twice instead"] },
+    ],
+  });
+  assert.match(next, /id=gty-cc-args author=ai status=accept/);
+  assert.match(next, /id=gty-cc-render author=ai status=edit/);
+  assert.match(next, /^  - comment: render twice instead$/m);
+
+  // A given with a comment re-parses with its comment attached.
+  const reparsed = parseGantryMarkdown(next);
+  const render = reparsed.aiSteps.find((given) => given.id === "gty-cc-render");
+  assert.deepEqual(render.comments, ["render twice instead"]);
+});
+
+test("picking a fork path records pick/reject and a resolved fork status", () => {
+  const parsed = parseGantryMarkdown(draftMarkdown);
+  const next = serializeGantryMarkdown(parsed, {
+    forks: [{ id: "gty-cc-takes", status: "gty-cc-takes-a" }],
+    paths: [
+      { id: "gty-cc-takes-a", status: "pick" },
+      { id: "gty-cc-takes-b", status: "reject" },
+    ],
+  });
+  assert.match(next, /gantry:fork id=gty-cc-takes status=gty-cc-takes-a/);
+  assert.match(next, /id=gty-cc-takes-a fork=gty-cc-takes status=pick/);
+  assert.match(next, /id=gty-cc-takes-b fork=gty-cc-takes status=reject/);
+});
+
+test("gate blocks on unresolved givens and forks, clears when resolved", () => {
+  const blocked = lintGantryMarkdown(draftMarkdown, { gate: true });
+  assert.equal(blocked.ok, false);
+  assert(blocked.errors.some((error) => error.code === "unresolved-step"));
+  assert(blocked.errors.some((error) => error.code === "unresolved-fork"));
+
+  // accept/reject/edit all clear a given; picking a path clears the fork.
+  const resolved = draftMarkdown
+    .replace(/author=ai status=open/g, "author=ai status=accept")
+    .replace("gantry:fork id=gty-cc-takes status=open", "gantry:fork id=gty-cc-takes status=gty-cc-takes-a");
+  const clear = lintGantryMarkdown(resolved, { gate: true });
+  assert.equal(clear.ok, true, JSON.stringify(clear.errors));
+});
+
+test("a fork comment proposes a path, persists, and resolves the gate (edit)", () => {
+  const parsed = parseGantryMarkdown(draftMarkdown);
+  const next = serializeGantryMarkdown(parsed, {
+    forks: [{ id: "gty-cc-takes", status: "edit", comments: ["neither — use scene-cut detection"] }],
+    // every step accepted so only the fork's resolution is under test
+    aiSteps: parsed.aiSteps.map((step) => ({ id: step.id, status: "accept" })),
+  });
+  assert.match(next, /gantry:fork id=gty-cc-takes status=edit/);
+  assert.match(next, /^  - comment: neither — use scene-cut detection$/m);
+
+  const reparsed = parseGantryMarkdown(next);
+  assert.deepEqual(reparsed.forks[0].comments, ["neither — use scene-cut detection"]);
+
+  // status=edit clears the fork half of the gate.
+  const gate = lintGantryMarkdown(next, { gate: true });
+  assert.equal(gate.ok, true, JSON.stringify(gate.errors));
+});
+
+test("lint rejects a fork with fewer than two paths", () => {
+  const bad = `# x
+
+## Pseudocode
+
+<!-- gantry:fork id=gty-solo status=open -->
+fork: only one branch?
+<!-- gantry:path id=gty-solo-a fork=gty-solo status=open -->
+path: A — the only option
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((error) => error.code === "invalid-fork"));
 });
 
 test("updates steps, decisions, choices, and comments", () => {

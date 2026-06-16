@@ -1,6 +1,6 @@
 ---
 name: gantry
-description: Collaborative pseudocode authorship workflow. Engineer writes detailed pseudocode; AI surfaces references, substantive edge cases, and structural ripples; engineer explicitly approves; AI translates to body. Also handles drift-check on existing gantry docs and rebuild mode for existing code. Use when authoring a new function/feature, returning to extend an existing gantry doc, or auditing your mental model of existing code.
+description: Collaborative pseudocode authorship workflow. Engineer writes detailed pseudocode, or explicitly asks AI to draft proposed pseudocode; AI surfaces references, substantive edge cases, useful feature additions, and structural ripples; engineer explicitly approves; AI translates to body. Also handles drift-check on existing gantry docs and rebuild mode for existing code. Use when authoring a new function/feature, returning to extend an existing gantry doc, or auditing your mental model of existing code.
 ---
 
 # gantry
@@ -15,17 +15,29 @@ When invoked, gantry accepts up to two optional arguments: a slug and a source h
 
 - **slug** — optional. If omitted, ask the engineer "what are you building?" and derive a slug from their one-liner.
 - **source hint** — optional path or symbol (e.g., `src/vendor/search.ts` or `searchVendors`). Used in rebuild mode to point at existing code.
+- **draft request** — optional natural-language ask such as "draft pseudocode for me" or "start with an AI draft." Only honored when explicit; otherwise the engineer writes first.
 
 ## Browser editor
 
 Gantry includes an optional local browser editor for `.gantry/<slug>.md`. The markdown file remains the only durable source of truth; the editor is just a faster surface for editing pseudocode steps, approving/rejecting AI items, choosing A/B/C options, and attaching comments.
 
-The editor is also the **drafting surface for a brand-new doc**, not only for editing a populated one. While a doc has no AI items yet (the authoring state), the editor presents a single freeform pseudocode field — the engineer writes loosely (prose, their own numbering, or none) and it is saved verbatim. Once AI annotations exist, the editor switches to the per-step gate view for resolving them.
+The editor is also the **drafting surface for a brand-new doc**, not only for editing a populated one. It has three states:
 
-Launch it from the project root:
+- **Drafting** — no AI content yet: a single freeform pseudocode field. The engineer writes loosely (prose, their own numbering, or none) and it is saved verbatim.
+- **Approval** — AI drafted the pseudocode: settled **givens** the engineer approves (per line or per block), plus the **forks** that demand a real decision (pick a path or drop it). No "proposed step" prose on every line.
+- **Annotation** — `ref`/`edge`/`feat`/`ripple` items exist: the per-step gate view for resolving them.
+
+Before running any editor, lint, or ids command, locate the editor script and use its absolute path. Check these locations in order:
+
+1. Project-local development checkout: `skills/gantry/scripts/gantry-editor.mjs`
+2. Codex global install: `~/.codex/skills/gantry/scripts/gantry-editor.mjs`
+3. Claude Code global install: `~/.claude/skills/gantry/scripts/gantry-editor.mjs`
+4. Legacy Codex/agent install: `~/.agents/skills/gantry/scripts/gantry-editor.mjs`
+
+Then run it with the current repository as `--root`, so the globally installed UI edits this project's `.gantry/` files:
 
 ```bash
-node path/to/skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
+node <absolute-path-to>/gantry-editor.mjs serve --slug <slug> --root <project-root>
 ```
 
 When running from this repository, the shorter form is:
@@ -39,19 +51,19 @@ node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
 Lint the Gantry markdown format:
 
 ```bash
-node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug>
+node <absolute-path-to>/gantry-editor.mjs lint --slug <slug> --root <project-root>
 ```
 
 Check the code-writing gate:
 
 ```bash
-node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug> --gate
+node <absolute-path-to>/gantry-editor.mjs lint --slug <slug> --gate --root <project-root>
 ```
 
 If older Gantry docs contain checkbox annotations without stable ids, add ids before using the browser editor:
 
 ```bash
-node skills/gantry/scripts/gantry-editor.mjs ids --slug <slug>
+node <absolute-path-to>/gantry-editor.mjs ids --slug <slug> --root <project-root>
 ```
 
 ### Strict editable item format
@@ -77,7 +89,41 @@ Choice items use `mode=choice` and options A/B/C:
   - comment: empty query should fail loudly
 ```
 
-Valid item types are `ref`, `edge`, `ripple`, `update`, and `mismatch`. Valid statuses are `open`, `accept`, `reject`, `edit`, `choice-a`, `choice-b`, and `choice-c`. `open` items still block code writing.
+Valid item types are `ref`, `edge`, `feat`, `ripple`, `update`, and `mismatch`. Valid statuses are `open`, `accept`, `reject`, `edit`, `choice-a`, `choice-b`, and `choice-c`. `open` items still block code writing.
+
+Annotation items are for the **annotation pass** (after the engineer's design is endorsed). AI-drafted pseudocode uses a different, lighter representation — see [AI-drafted pseudocode: givens and forks](#ai-drafted-pseudocode-givens-and-forks).
+
+### Givens and forks (the AI-draft representation)
+
+When AI drafts pseudocode, it does **not** mark every line as a "proposed step." It classifies each line into one of two kinds:
+
+A **given** is settled pseudocode — a line with a clear default and no real alternative. It carries provenance (`author`) and resolves with the **same vocabulary as an annotation item** — accept, reject, or edit — never "proposed:" prose. The text is on the line after the marker, with optional `- comment:` lines for a proposed edit:
+
+```markdown
+<!-- gantry:step id=gty-cc-normalize author=ai status=open -->
+Step 0 — normalize source: probe rotation; bake if non-zero, else copy.
+  - comment: (optional) a proposed edit lives here, exactly like an item comment
+```
+
+- `author` is `ai` (drafted by AI, must be resolved) or `user` (the engineer's own line, implicitly accepted — usually a plain pseudocode line with no marker at all, rendered with a static approved mark).
+- `status` is `open` | `accept` | `reject` | `edit` — identical to a decision item. Only `open` givens block the gate; a non-empty comment makes a given an `edit`.
+
+A **fork** is the branch decision — the *only* thing that demands an answer. It is a recursive parent: it owns two or more **paths**, and each path owns its own givens. A fork is unresolved (`status=open`) until the engineer picks a path (`status=<path-id>`) or drops the whole fork (`status=reject`). Each path carries `status` `open` | `pick` | `reject`; rejecting a path collapses everything under it.
+
+```markdown
+<!-- gantry:fork id=gty-cc-takes status=open -->
+fork: How should repeated takes be detected?
+<!-- gantry:path id=gty-cc-takes-llm fork=gty-cc-takes status=open -->
+path: A — LLM adjudication
+<!-- gantry:step id=gty-cc-llm-keep author=ai status=open path=gty-cc-takes-llm -->
+Keep the LAST take; never cut all copies.
+<!-- gantry:path id=gty-cc-takes-ngram fork=gty-cc-takes status=open -->
+path: B — deterministic fuzzy n-gram
+<!-- gantry:step id=gty-cc-ngram author=ai status=open path=gty-cc-takes-ngram -->
+Slide an n-gram window; cut the earlier span over a similarity threshold.
+```
+
+Structure is driven entirely by the `id`/`fork`/`path` attributes, not by indentation — a path belongs to the fork named in its `fork=` attribute, and a given belongs to the path named in its `path=` attribute (top-level givens omit `path=`). Indentation in the file is cosmetic.
 
 ## State inference (first thing the skill does)
 
@@ -147,15 +193,19 @@ Forward mode is only allowed after the no-slug related-doc search has found no p
 
 1. **Ask the target.** When gantry is invoked with no slug and no description, explicitly ask "what are you building?" — one sentence — before doing anything else. Run the related-doc search (see state inference above), then use the one-liner as the doc target and slug source.
 2. **Scaffold.** Create main doc + sidecar. Record baseline.
-3. **Engineer drafts pseudocode.** Claude/Codex launches the browser editor as the primary drafting surface — run it in the background so it doesn't block the conversation:
+3. **Draft pseudocode.** Choose the drafting path from the engineer's explicit intent:
+   - **Engineer-first (default):** A freshly scaffolded doc has no AI items, so the editor shows a single freeform pseudocode field — the engineer writes loosely and saves. Fallback: chat — if the engineer types pseudocode into chat, transcribe it into the main doc verbatim (no rewording).
+   - **AI-draft (explicit request only):** Claude/Codex reads the target context and writes an initial pseudocode draft into `## Pseudocode` as **givens and forks** (see [AI-drafted pseudocode: givens and forks](#ai-drafted-pseudocode-givens-and-forks)), because AI-authored pseudocode is not yet the engineer's design. Settled lines are givens the engineer approves; genuine decisions are forks the engineer resolves. Both must be cleared before annotation or code-writing.
+   Then launch the browser editor as the primary drafting/resolution surface — run it in the background so it doesn't block the conversation:
    ```bash
-   node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
+   node <absolute-path-to>/gantry-editor.mjs serve --slug <slug> --root <project-root>
    ```
-   This opens the editor in the engineer's browser automatically. A freshly scaffolded doc has no AI items, so the editor shows a single freeform pseudocode field — the engineer writes loosely and saves. Fallback: chat — if the engineer types pseudocode into chat, transcribe it into the main doc verbatim (no rewording).
+   This opens the editor in the engineer's browser automatically. In AI-draft mode, launch it after populating the draft so the engineer resolves the proposal in the same approval UI.
 4. **Engineer signals "ready"** (or similar). Now AI annotates.
-5. **Annotate inline.** Walk the pseudocode step by step. Under each step that needs it, add `- [ ]` annotations of three types (rules in [annotation bar](#annotation-bar) below):
+5. **Annotate inline.** Walk the pseudocode step by step. Under each step that needs it, add `- [ ]` annotations of four types (rules in [annotation bar](#annotation-bar) below):
    - `**ref:**` — verify symbols and resolve ambiguity for references the engineer used.
    - `**edge:**` — substantive edge cases the pseudocode didn't address.
+   - `**feat:**` — useful or necessary feature additions the engineer did not specify but should consciously accept or reject.
    - `**ripple:**` — structural changes elsewhere in the codebase needed to make this work.
 6. **Iteration loop.** Engineer resolves annotations in-file or in chat (see [resolution](#resolution)). Every turn: run the diff script, reconcile against engineer code changes, surface uncertain triage in chat. Auto-revert resolved annotations whose context shifted.
 7. **Approval gate.** Code-writing is blocked while any `- [ ]` remains in the main doc. When zero unresolved remain, engineer can say "write the code" (or equivalent).
@@ -185,6 +235,7 @@ After rebuild's initial pass completes, the doc is live — continue mode applie
 Annotations cost the engineer attention. Over-surfacing trains the engineer to skim and rubber-stamp, which collapses the approval gate. Surface only what passes the bar:
 
 - **edge:** Surface only if the answer would change *observable system behavior* in a way a caller or user can see. Substantive branching: throw vs. return empty, parameterize vs. hardcode, error-on-invalid vs. silently-skip. Do NOT surface defensive nitpicks: whitespace handling, null-vs-empty when the answer is obviously "do the sane thing," length checks on data that's already validated upstream.
+- **feat:** Surface only when the current pseudocode appears to omit a user-visible capability that is likely necessary for the intended workflow, or a small adjacent feature that would materially improve the outcome. A `feat` is an explicit expansion candidate: it must state why the addition belongs, what behavior changes if accepted, and what scope cost it creates. Do NOT use `feat` for generic polish, speculative product ideas, "while we're here" extras, or mechanical implementation consequences.
 - **ripple:** Reserved for *structural expansion* — methods that don't exist yet and need adding, signatures that change and affect multiple call sites, new types or errors. Do NOT raise as a separate ripple anything that's a mechanical consequence of an already-stated decision (imports, trivial parameter threading, formatting). Those are handled automatically at code-write time.
 - **ref:** Surface only when there's real ambiguity (two valid candidates the engineer might mean, or a symbol the engineer assumed exists that doesn't). Don't surface a `ref` to confirm a symbol AI can trivially verify.
 
@@ -222,6 +273,29 @@ The engineer never types marker syntax. AI maintains markers on every turn.
 ```
 
 If AI is uncertain about intent (e.g., "yes but also do Y" — accept-with-augmentation or edit?), confirm once in chat before normalizing.
+
+### AI-drafted pseudocode: givens and forks
+
+AI-drafted pseudocode is not yet the engineer's design, so it must be endorsed before annotation or code-writing. But endorsement must not become 13 identical "proposed step" gates — uniform ceremony trains the engineer to skim and rubber-stamp, which is the exact failure gantry exists to prevent. So the draft is split into two kinds of content (markup in [Givens and forks](#givens-and-forks-the-ai-draft-representation) above):
+
+**Your job when drafting is to classify, not to propose everything.** For each line:
+
+- **Clear default, no real alternative → emit a `given`** (`author=ai status=open`). Most lines are givens. They render as clean pseudocode the engineer accepts, rejects, or edits — individually, or a whole block at once via "approve all." A sensible default is not a decision; do not gate it behind prose.
+- **Two or more real implementations where the choice changes what follows → emit a `fork`**, at the point in the pipeline where the branch occurs, with each path owning the givens it implies.
+
+**The bar for a fork is high, and the integrity of the whole workflow rests on it.** Approving givens in bulk is safe *only because* every genuine decision has been pulled out into a fork that cannot be bulk-resolved. So: **when in doubt, fork — do not given.** If you bury a real alternative inside a given, the engineer can approve past it without ever deciding, and the design record is a lie.
+
+Resolution:
+
+- **Given — accept:** the engineer endorses it (`status=accept`). Per line, or per block via "approve all."
+- **Given — reject:** the engineer drops the line (`status=reject`); it won't be built.
+- **Given — edit:** the engineer rewrites the line or leaves a comment (`status=edit`); it stays a given, now theirs.
+- **Fork — pick a path:** `status=<path-id>`; sibling paths are rejected and collapse. The picked path's givens fold into the settled flow (still each resolvable).
+- **Fork — drop:** `status=reject`; every path collapses. The engineer stops worrying about anything underneath.
+
+When a path or fork is rejected, **you own keeping the surviving givens coherent.** Rejecting a branch collapses everything *under* it for free (containment). But givens *after* the fork that assumed the dropped feature (a merge step that referenced its output, a report that counted its results) are not underneath it — silently reconcile those to match the new reality and note that you did. The engineer decides forks; you keep the givens consistent. Do not ask them to clean up the ripple.
+
+The gate (`status=open` givens, `status=open` forks) blocks code-writing until cleared. Do not add `ref`/`edge`/`feat`/`ripple` annotations against unresolved givens or forks; first establish what the engineer actually endorses, then run the annotation pass on the settled pseudocode.
 
 ## Diff awareness (every turn)
 
@@ -271,6 +345,7 @@ Never introduce design decisions at code-write time that weren't surfaced and ap
 
 - It does not invent edge cases AI didn't think of. Gantry forces engagement with the edge cases AI surfaces, but cannot generate cases beyond AI's own thinking. The engineer's own pseudocode is the input that pushes AI to think about cases beyond the obvious.
 - It does not enforce hard gates (pre-commit hooks etc.) in v0. Soft enforcement only — this SKILL.md, used by Claude inside Claude Code.
+- It does not silently replace the engineer's thinking. AI may draft starting pseudocode only when the engineer explicitly requests it, and every generated step remains unapproved until accepted or edited by the engineer.
 - It does not normalize the engineer's pseudocode formatting. Engineer writes loose; AI parses what's there. If pseudocode patterns break parsing in practice, that's when a format-normalization pass gets designed.
 - It does not generate documentation. The main doc is the artifact — it documents itself through the pseudocode, annotations, resolutions, and code snapshot.
 
