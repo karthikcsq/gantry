@@ -92,8 +92,8 @@ test("parses givens, forks, and nested paths into ordered blocks", () => {
   assert.equal(fork.status, "open");
   assert.equal(fork.paths.length, 2);
   assert.equal(fork.paths[0].id, "gty-cc-takes-a");
-  assert.equal(fork.paths[0].steps.length, 1);
-  assert.equal(fork.paths[0].steps[0].id, "gty-cc-a1");
+  assert.equal(fork.paths[0].children.length, 1);
+  assert.equal(fork.paths[0].children[0].id, "gty-cc-a1");
 
   // Top-level blocks: step, fork, step (path-nested steps stay under the fork).
   assert.deepEqual(parsed.blocks.map((b) => b.kind), ["step", "fork", "step"]);
@@ -161,6 +161,59 @@ test("a fork comment proposes a path, persists, and resolves the gate (edit)", (
   // status=edit clears the fork half of the gate.
   const gate = lintGantryMarkdown(next, { gate: true });
   assert.equal(gate.ok, true, JSON.stringify(gate.errors));
+});
+
+test("nests a fork inside a path and round-trips it", () => {
+  const md = `# nested
+
+## Pseudocode
+
+<!-- gantry:fork id=gty-outer status=open -->
+fork: outer?
+<!-- gantry:path id=gty-outer-a fork=gty-outer status=open -->
+path: option A
+<!-- gantry:step id=gty-s1 author=ai status=open path=gty-outer-a -->
+a step under A
+<!-- gantry:fork id=gty-inner status=open path=gty-outer-a -->
+fork: inner under A?
+<!-- gantry:path id=gty-inner-x fork=gty-inner status=open -->
+path: X
+<!-- gantry:step id=gty-s2 author=ai status=open path=gty-inner-x -->
+deep step under X
+<!-- gantry:path id=gty-inner-y fork=gty-inner status=open -->
+path: Y
+<!-- gantry:path id=gty-outer-b fork=gty-outer status=open -->
+path: option B
+`;
+  const parsed = parseGantryMarkdown(md);
+  // Two forks total (flat), one nested under outer's path A.
+  assert.equal(parsed.forks.length, 2);
+  assert.equal(parsed.blocks.length, 1); // only the outer fork is top-level
+  const outerA = parsed.forks.find((f) => f.id === "gty-outer").paths[0];
+  assert.deepEqual(outerA.children.map((c) => `${c.kind}:${c.id}`), ["step:gty-s1", "fork:gty-inner"]);
+  assert.equal(parsed.aiSteps.length, 2);
+
+  // Round-trips with the nested fork's path= attribute intact.
+  assert.equal(serializeGantryMarkdown(parsed, {}), md);
+});
+
+test("lint flags dangling parent references that break nesting", () => {
+  const bad = `# x
+
+## Pseudocode
+
+<!-- gantry:fork id=gty-f status=open -->
+fork: pick?
+<!-- gantry:path id=gty-f-a fork=gty-nope status=open -->
+path: A
+<!-- gantry:path id=gty-f-b fork=gty-f status=open -->
+path: B
+<!-- gantry:step id=gty-orphan author=ai status=open path=gty-missing -->
+a step pointing at a path that does not exist
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((e) => e.code === "unknown-parent" && /unknown path "gty-missing"/.test(e.message)));
+  assert(result.errors.some((e) => e.code === "unknown-parent" && /unknown fork "gty-nope"/.test(e.message)));
 });
 
 test("lint rejects a fork with fewer than two paths", () => {

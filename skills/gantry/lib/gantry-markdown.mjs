@@ -69,7 +69,7 @@ export function parseGantryMarkdown(markdown) {
       };
       aiSteps.push(step);
       const parentPath = step.pathId ? pathById.get(step.pathId) : null;
-      if (parentPath) parentPath.steps.push(step);
+      if (parentPath) parentPath.children.push(step);
       else blocks.push(step);
       currentStep = { id: step.id, line: textLine, text: step.text };
       index = endLine;
@@ -100,11 +100,16 @@ export function parseGantryMarkdown(markdown) {
         title: stripLabel(linesSafe(lines, titleLine), "fork"),
         status: marker.status ?? "open",
         comments,
+        pathId: marker.path ?? null,
         paths: [],
       };
       forks.push(fork);
       forkById.set(fork.id, fork);
-      blocks.push(fork);
+      // A fork with a path= attribute is nested inside that path (recursion);
+      // otherwise it's a top-level branch.
+      const parentForkPath = fork.pathId ? pathById.get(fork.pathId) : null;
+      if (parentForkPath) parentForkPath.children.push(fork);
+      else blocks.push(fork);
       index = endLine;
       continue;
     }
@@ -121,7 +126,8 @@ export function parseGantryMarkdown(markdown) {
         title: stripLabel(linesSafe(lines, titleLine), "path"),
         status: PATH_STATUSES.has(marker.status) ? marker.status : "open",
         forkId: marker.fork ?? null,
-        steps: [],
+        forkRef: marker.fork ?? null, // raw reference, preserved for lint
+        children: [],
       };
       pathById.set(path.id, path);
       const fork = (path.forkId && forkById.get(path.forkId)) || forks[forks.length - 1];
@@ -216,6 +222,12 @@ export function lintGantryMarkdown(markdown, options = {}) {
   const errors = [];
   const seen = new Set();
 
+  // Reference integrity for nesting: a step/fork that names a parent path, or a
+  // path that names its fork, must point at a real node — otherwise the parser
+  // silently un-nests it and the document is malformed.
+  const forkIds = new Set(parsed.forks.map((fork) => fork.id));
+  const pathIds = new Set(parsed.forks.flatMap((fork) => fork.paths.map((path) => path.id)));
+
   for (const item of parsed.items) {
     if (!item.markerLinePresent) {
       errors.push(issue("missing-id", item.itemLine, "AI item is missing a gantry id marker."));
@@ -259,6 +271,9 @@ export function lintGantryMarkdown(markdown, options = {}) {
     if (!STEP_STATUSES.has(step.status)) {
       errors.push(issue("invalid-status", step.markerLine, `Invalid step status "${step.status}".`));
     }
+    if (step.pathId && !pathIds.has(step.pathId)) {
+      errors.push(issue("unknown-parent", step.markerLine, `Step references unknown path "${step.pathId}".`));
+    }
   }
 
   for (const fork of parsed.forks) {
@@ -271,9 +286,12 @@ export function lintGantryMarkdown(markdown, options = {}) {
     if (fork.paths.length < 2) {
       errors.push(issue("invalid-fork", fork.markerLine, "Fork must offer at least two paths."));
     }
-    const pathIds = new Set(fork.paths.map((path) => path.id));
-    if (!(["open", "reject", "edit"].includes(fork.status) || pathIds.has(fork.status))) {
-      errors.push(issue("invalid-status", fork.markerLine, `Fork status "${fork.status}" is not open, reject, edit, or a path id.`));
+    if (fork.pathId && !pathIds.has(fork.pathId)) {
+      errors.push(issue("unknown-parent", fork.markerLine, `Nested fork references unknown path "${fork.pathId}".`));
+    }
+    const ownPathIds = new Set(fork.paths.map((path) => path.id));
+    if (!(["open", "reject", "edit"].includes(fork.status) || ownPathIds.has(fork.status))) {
+      errors.push(issue("invalid-status", fork.markerLine, `Fork status "${fork.status}" is not open, reject, edit, or one of its path ids.`));
     }
     for (const path of fork.paths) {
       if (!ID_PATTERN.test(path.id)) {
@@ -284,6 +302,9 @@ export function lintGantryMarkdown(markdown, options = {}) {
       seen.add(path.id);
       if (!PATH_STATUSES.has(path.status)) {
         errors.push(issue("invalid-status", path.markerLine, `Invalid path status "${path.status}".`));
+      }
+      if (path.forkRef && !forkIds.has(path.forkRef)) {
+        errors.push(issue("unknown-parent", path.markerLine, `Path references unknown fork "${path.forkRef}".`));
       }
     }
   }
@@ -432,8 +453,9 @@ function renderAiStep(step) {
 
 function renderFork(fork) {
   const status = fork.status ?? "open";
+  const pathAttr = fork.pathId ? ` path=${fork.pathId}` : "";
   const out = [
-    `<!-- gantry:fork id=${fork.id} status=${status} -->`,
+    `<!-- gantry:fork id=${fork.id} status=${status}${pathAttr} -->`,
     `fork: ${fork.title ?? ""}`.trimEnd(),
   ];
   for (const comment of fork.comments ?? []) {

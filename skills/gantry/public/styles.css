@@ -769,15 +769,25 @@ textarea::placeholder {
   border-left-color: var(--purple);
   border-radius: 0 6px 6px 0;
   padding: 12px 14px 14px;
-  background: color-mix(in srgb, var(--purple) 5%, transparent);
+  /* opaque (mixed with the page bg, not transparent) so nested forks DON'T
+     compound their pink. Depth deepens the tint, then cycles back to base. */
+  --fork-tint: color-mix(in srgb, var(--purple) 6%, var(--bg));
+  background: var(--fork-tint);
+}
+.fork[data-depth="1"] {
+  --fork-tint: color-mix(in srgb, var(--purple) 11%, var(--bg));
+}
+.fork[data-depth="2"] {
+  --fork-tint: color-mix(in srgb, var(--purple) 16%, var(--bg));
 }
 /* the fork keeps its purple identity (left rule + chip) in every state; only the
-   cell tint follows the step scheme: pick = green, drop = red, propose = yellow */
+   cell tint follows the step scheme: pick = green, drop = red, propose = yellow.
+   Resolved tints are opaque too, so they don't bleed through nested forks. */
 .fork[data-status="resolved"] {
-  background: color-mix(in srgb, var(--green) 9%, transparent);
+  background: color-mix(in srgb, var(--green) 10%, var(--bg));
 }
 .fork[data-status="dropped"] {
-  background: color-mix(in srgb, var(--red) 9%, transparent);
+  background: color-mix(in srgb, var(--red) 10%, var(--bg));
 }
 
 .fork-head {
@@ -826,6 +836,11 @@ textarea::placeholder {
   border-color: var(--green);
 }
 
+/* a fork nested inside a path sits within the path column (no top-level pull) */
+.path-body .fork {
+  margin: 12px 0 6px;
+}
+
 /* propose-another-path box at the bottom of the fork */
 .fork-comment {
   margin: 9px 0 0;
@@ -833,7 +848,7 @@ textarea::placeholder {
   color: var(--ink);
 }
 .fork[data-status="proposed"] {
-  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  background: color-mix(in srgb, var(--yellow) 11%, var(--bg));
 }
 
 /* ── path: one branch of a fork ────────────────────────────── */

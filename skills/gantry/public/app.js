@@ -65,15 +65,20 @@ async function openSlug(nextSlug) {
 function indexModel(target) {
   const aiSteps = [];
   const forks = [];
-  for (const block of target.blocks ?? []) {
-    if (block.kind === "step" && block.author === "ai") {
-      aiSteps.push(block);
-    } else if (block.kind === "fork") {
-      forks.push(block);
-      for (const path of block.paths ?? []) {
-        for (const step of path.steps ?? []) aiSteps.push(step);
+  // Forks nest inside paths, so walk the tree recursively to collect every AI
+  // step and fork (for gate stats + collectUpdates), sharing block references.
+  const visitFork = (fork) => {
+    forks.push(fork);
+    for (const path of fork.paths ?? []) {
+      for (const child of path.children ?? []) {
+        if (child.kind === "fork") visitFork(child);
+        else if (child.kind === "step" && child.author === "ai") aiSteps.push(child);
       }
     }
+  };
+  for (const block of target.blocks ?? []) {
+    if (block.kind === "step" && block.author === "ai") aiSteps.push(block);
+    else if (block.kind === "fork") visitFork(block);
   }
   target.aiSteps = aiSteps;
   target.forks = forks;
@@ -517,11 +522,14 @@ function stepStatusButton(nextStatus, step) {
 
 // A fork: the branch decision. Header carries the question + a "drop fork"
 // reject that collapses every path under it. Unresolved until a path is picked.
-function renderForkBlock(fork) {
+function renderForkBlock(fork, depth = 0) {
   const wrap = document.createElement("section");
   wrap.className = "fork";
   wrap.dataset.forkId = fork.id;
   wrap.dataset.status = forkStateName(fork);
+  // Nesting depth drives the pink intensity; it cycles every 3 levels so deep
+  // nesting deepens then resets to base instead of compounding indefinitely.
+  wrap.dataset.depth = String(depth % 3);
 
   const head = document.createElement("div");
   head.className = "fork-head";
@@ -564,7 +572,7 @@ function renderForkBlock(fork) {
 
   const paths = document.createElement("div");
   paths.className = "paths";
-  fork.paths.forEach((path, index) => paths.append(renderPath(fork, path, index)));
+  fork.paths.forEach((path, index) => paths.append(renderPath(fork, path, index, depth)));
   wrap.append(paths);
 
   // Propose a different path. A non-empty comment resolves the fork (edit) — the
@@ -590,7 +598,7 @@ function renderForkBlock(fork) {
 // One branch of a fork. Pick promotes it (and rejects siblings); reject collapses
 // it. Rejecting one path no longer auto-picks the other — you may reject both and
 // propose a third in the fork comment. A rejected path collapses to its title.
-function renderPath(fork, path, index) {
+function renderPath(fork, path, index, depth = 0) {
   const key = String.fromCharCode(65 + index);
   const isPicked = path.status === "pick";
   const isRejected = path.status === "reject";
@@ -650,11 +658,14 @@ function renderPath(fork, path, index) {
 
   const body = document.createElement("div");
   body.className = "path-body";
-  const steps = path.steps ?? [];
-  if (steps.length === 0) {
+  const children = path.children ?? [];
+  if (children.length === 0) {
     body.append(line("plain", "(no steps under this path yet)"));
   } else {
-    for (const step of steps) body.append(renderApprovalStep(step, null));
+    // A path holds steps and, recursively, nested forks (one level deeper).
+    for (const child of children) {
+      body.append(child.kind === "fork" ? renderForkBlock(child, depth + 1) : renderApprovalStep(child, null));
+    }
   }
   sec.append(body);
   return sec;
