@@ -62,8 +62,10 @@ export function parseGantryMarkdown(markdown) {
         line: textLine,
         endLine,
         text: linesSafe(lines, textLine),
-        author: AUTHORS.has(marker.author) ? marker.author : "ai",
-        status: STEP_STATUSES.has(marker.status) ? marker.status : "open",
+        // Preserve the raw author/status so an invalid marker surfaces as a lint
+        // error instead of being silently coerced (items and forks do the same).
+        author: marker.author ?? "ai",
+        status: marker.status ?? "open",
         comments,
         pathId: marker.path ?? null,
       };
@@ -124,7 +126,8 @@ export function parseGantryMarkdown(markdown) {
         markerLine: index,
         line: titleLine,
         title: stripLabel(linesSafe(lines, titleLine), "path"),
-        status: PATH_STATUSES.has(marker.status) ? marker.status : "open",
+        // Raw status preserved so an invalid path status reaches lint (see step above).
+        status: marker.status ?? "open",
         forkId: marker.fork ?? null,
         forkRef: marker.fork ?? null, // raw reference, preserved for lint
         children: [],
@@ -438,8 +441,10 @@ function renderItem(item) {
 }
 
 function renderAiStep(step) {
-  const author = AUTHORS.has(step.author) ? step.author : "ai";
-  const status = STEP_STATUSES.has(step.status) ? step.status : "open";
+  // Write back whatever the engineer set; lint (and the server's pre-write gate)
+  // reject invalid values rather than this renderer silently normalizing them.
+  const author = step.author ?? "ai";
+  const status = step.status ?? "open";
   const pathAttr = step.pathId ? ` path=${step.pathId}` : "";
   const out = [
     `<!-- gantry:step id=${step.id} author=${author} status=${status}${pathAttr} -->`,
@@ -465,7 +470,7 @@ function renderFork(fork) {
 }
 
 function renderPath(path) {
-  const status = PATH_STATUSES.has(path.status) ? path.status : "open";
+  const status = path.status ?? "open";
   const forkAttr = path.forkId ? ` fork=${path.forkId}` : "";
   return [
     `<!-- gantry:path id=${path.id}${forkAttr} status=${status} -->`,

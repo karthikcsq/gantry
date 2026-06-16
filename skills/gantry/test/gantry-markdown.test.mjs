@@ -325,30 +325,36 @@ test("id migration assigns stable ids in visual order", () => {
   assert(migrated.indexOf("gty-001") < migrated.indexOf("gty-002"));
 });
 
-test("server reads and writes only the requested gantry doc", async (t) => {
-  const root = await mkdtemp(path.join(tmpdir(), "gantry-editor-"));
-  await mkdir(path.join(root, ".gantry"));
-  await writeFile(path.join(root, ".gantry", "sample.md"), validMarkdown, "utf8");
-  await writeFile(path.join(root, ".gantry", "other.md"), "# other\n", "utf8");
-
+// Boot the editor server against a temp root and resolve once it prints its port.
+// Shared by every server test so the spawn/port-handshake lives in one place.
+async function startEditor(t, root, slug) {
   const child = spawn(process.execPath, [
     "skills/gantry/scripts/gantry-editor.mjs",
     "serve",
     "--root",
     root,
     "--slug",
-    "sample",
+    slug,
     "--no-open",
   ], { cwd: path.resolve("."), stdio: ["ignore", "pipe", "pipe"] });
   t.after(() => child.kill());
 
-  const port = await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     child.stderr.on("data", (data) => reject(new Error(data.toString())));
     child.stdout.on("data", (data) => {
       const match = /http:\/\/127\.0\.0\.1:(\d+)/.exec(data.toString());
       if (match) resolve(match[1]);
     });
   });
+}
+
+test("server reads and writes only the requested gantry doc", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "gantry-editor-"));
+  await mkdir(path.join(root, ".gantry"));
+  await writeFile(path.join(root, ".gantry", "sample.md"), validMarkdown, "utf8");
+  await writeFile(path.join(root, ".gantry", "other.md"), "# other\n", "utf8");
+
+  const port = await startEditor(t, root, "sample");
 
   const read = await fetch(`http://127.0.0.1:${port}/api/doc?slug=sample`).then((res) => res.json());
   assert.equal(read.ok, true);
@@ -373,24 +379,7 @@ test("server saves a freeform pseudocode draft into an empty scaffold", async (t
   await mkdir(path.join(root, ".gantry"));
   await writeFile(path.join(root, ".gantry", "draft.md"), emptyScaffold, "utf8");
 
-  const child = spawn(process.execPath, [
-    "skills/gantry/scripts/gantry-editor.mjs",
-    "serve",
-    "--root",
-    root,
-    "--slug",
-    "draft",
-    "--no-open",
-  ], { cwd: path.resolve("."), stdio: ["ignore", "pipe", "pipe"] });
-  t.after(() => child.kill());
-
-  const port = await new Promise((resolve, reject) => {
-    child.stderr.on("data", (data) => reject(new Error(data.toString())));
-    child.stdout.on("data", (data) => {
-      const match = /http:\/\/127\.0\.0\.1:(\d+)/.exec(data.toString());
-      if (match) resolve(match[1]);
-    });
-  });
+  const port = await startEditor(t, root, "draft");
 
   const write = await fetch(`http://127.0.0.1:${port}/api/doc`, {
     method: "PUT",
@@ -402,4 +391,213 @@ test("server saves a freeform pseudocode draft into an empty scaffold", async (t
   const saved = await readFile(path.join(root, ".gantry", "draft.md"), "utf8");
   assert.match(saved, /Read the query\.\nSearch vendors by name\./);
   assert.doesNotMatch(saved, /engineer writes here/);
+});
+
+// --- legacy markerless items: parsing + status inference ---
+
+const markerlessMarkdown = `# legacy
+
+## Pseudocode
+
+1. Do the thing.
+- [ ] **ref:** still open, no badge
+- [x] **edge:** [reject] badge wins over prose
+- [x] **feat:** we rejected this approach
+- [x] **ripple:** checked with no signal means accept
+
+## Code (as written 2026-06-13 @ abc123)
+
+empty
+`;
+
+test("infers item status from checkbox, badge, and prose on markerless items", () => {
+  const parsed = parseGantryMarkdown(markerlessMarkdown);
+  const byType = Object.fromEntries(parsed.items.map((item) => [item.type, item]));
+  assert.equal(byType.ref.status, "open"); // unchecked → open regardless of body
+  assert.equal(byType.edge.status, "reject"); // explicit [reject] badge
+  assert.equal(byType.feat.status, "reject"); // inferred from the word "rejected"
+  assert.equal(byType.ripple.status, "accept"); // checked, no other signal
+
+  // No marker line means lint flags every one as missing an id.
+  assert.equal(byType.ref.markerLinePresent, false);
+  const lint = lintGantryMarkdown(markerlessMarkdown);
+  assert.equal(lint.errors.filter((e) => e.code === "missing-id").length, 4);
+});
+
+test("migrating markerless items preserves inferred status and adds ids", () => {
+  const migrated = ensureGantryIds(markerlessMarkdown);
+  const reparsed = parseGantryMarkdown(migrated);
+  assert(reparsed.items.every((item) => item.markerLinePresent));
+  const statusByType = Object.fromEntries(reparsed.items.map((item) => [item.type, item.status]));
+  assert.deepEqual(statusByType, { ref: "open", edge: "reject", feat: "reject", ripple: "accept" });
+});
+
+// --- choice-item lint rules ---
+
+test("lint enforces choice/decision status rules", () => {
+  const bad = `# choices
+
+## Pseudocode
+
+1. Pick options.
+<!-- gantry:item id=gty-solo type=edge status=choice-a mode=choice -->
+- [x] **edge:** [choice-a] only one option offered?
+  - A: the only one
+<!-- gantry:item id=gty-dec type=ref status=choice-b mode=decision -->
+- [x] **ref:** [choice-b] a decision wearing a choice status
+<!-- gantry:item id=gty-bad type=feat status=accept mode=choice -->
+- [x] **feat:** [accept] a choice that resolved to accept
+  - A: first
+  - B: second
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((e) => e.code === "invalid-options"));
+  assert(result.errors.some((e) => e.code === "invalid-status" && /cannot use an A\/B\/C/.test(e.message)));
+  assert(result.errors.some((e) => e.code === "invalid-status" && /must resolve to option A, B, or C/.test(e.message)));
+});
+
+// --- duplicate ids ---
+
+test("lint flags a reused gantry id", () => {
+  const bad = `# dup
+
+## Pseudocode
+
+1. step
+<!-- gantry:item id=gty-dup type=ref status=open mode=decision -->
+- [ ] **ref:** first use
+<!-- gantry:item id=gty-dup type=edge status=open mode=decision -->
+- [ ] **edge:** second use of the same id
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((e) => e.code === "duplicate-id"));
+});
+
+// --- fork status outside its allowed vocabulary ---
+
+test("lint rejects a fork status that is neither a keyword nor a path id", () => {
+  const bad = `# forkstatus
+
+## Pseudocode
+
+<!-- gantry:fork id=gty-f status=bogus -->
+fork: which way?
+<!-- gantry:path id=gty-f-a fork=gty-f status=open -->
+path: A
+<!-- gantry:path id=gty-f-b fork=gty-f status=open -->
+path: B
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((e) => e.code === "invalid-status" && /not open, reject, edit/.test(e.message)));
+});
+
+test("lint flags an invalid AI step author and status", () => {
+  const bad = `# steps
+
+## Pseudocode
+
+<!-- gantry:step id=gty-s1 author=robot status=maybe -->
+A step with a bogus author and status.
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((e) => e.code === "invalid-author"));
+  assert(result.errors.some((e) => e.code === "invalid-status" && /step status/.test(e.message)));
+});
+
+test("lint flags an invalid path status", () => {
+  const bad = `# paths
+
+## Pseudocode
+
+<!-- gantry:fork id=gty-f status=open -->
+fork: which way?
+<!-- gantry:path id=gty-f-a fork=gty-f status=sideways -->
+path: A
+<!-- gantry:path id=gty-f-b fork=gty-f status=open -->
+path: B
+`;
+  const result = lintGantryMarkdown(bad);
+  assert(result.errors.some((e) => e.code === "invalid-status" && /path status/.test(e.message)));
+});
+
+// --- CRLF inputs normalize to LF and still round-trip ---
+
+test("normalizes CRLF input and round-trips as LF", () => {
+  const crlf = validMarkdown.replace(/\n/g, "\r\n");
+  const parsed = parseGantryMarkdown(crlf);
+  assert.equal(parsed.items.length, 2);
+  assert.equal(serializeGantryMarkdown(parsed, {}), validMarkdown);
+});
+
+// --- legacy doc block ordering (plain user steps, items are not blocks) ---
+
+test("orders legacy user steps as blocks and keeps items out of the block list", () => {
+  const parsed = parseGantryMarkdown(validMarkdown);
+  assert.deepEqual(
+    parsed.blocks.map((b) => `${b.kind}:${b.author}`),
+    ["step:user", "step:user"],
+  );
+  assert.equal(parsed.steps.length, 2);
+  assert.equal(parsed.items.length, 2);
+});
+
+// --- server error paths ---
+
+test("server returns an error for an unknown slug", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "gantry-editor-"));
+  await mkdir(path.join(root, ".gantry"));
+  await writeFile(path.join(root, ".gantry", "sample.md"), validMarkdown, "utf8");
+
+  const port = await startEditor(t, root, "sample");
+  const res = await fetch(`http://127.0.0.1:${port}/api/doc?slug=does-not-exist`);
+  const body = await res.json();
+  assert.equal(res.status, 500);
+  assert.equal(body.ok, false);
+});
+
+test("server rejects a slug with path separators", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "gantry-editor-"));
+  await mkdir(path.join(root, ".gantry"));
+  await writeFile(path.join(root, ".gantry", "sample.md"), validMarkdown, "utf8");
+
+  const port = await startEditor(t, root, "sample");
+  const res = await fetch(`http://127.0.0.1:${port}/api/doc?slug=${encodeURIComponent("../escape")}`);
+  const body = await res.json();
+  assert.equal(res.status, 400);
+  assert.equal(body.ok, false);
+});
+
+test("server surfaces the overwrite guard as a 422", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "gantry-editor-"));
+  await mkdir(path.join(root, ".gantry"));
+  await writeFile(path.join(root, ".gantry", "sample.md"), validMarkdown, "utf8");
+
+  const port = await startEditor(t, root, "sample");
+  const res = await fetch(`http://127.0.0.1:${port}/api/doc`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ slug: "sample", pseudocode: "wipe everything" }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 422);
+  assert.equal(body.ok, false);
+  assert.match(body.error, /already has AI annotations/);
+  // The annotated doc on disk is untouched.
+  assert.equal(await readFile(path.join(root, ".gantry", "sample.md"), "utf8"), validMarkdown);
+});
+
+test("server returns an error for malformed JSON", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "gantry-editor-"));
+  await mkdir(path.join(root, ".gantry"));
+  await writeFile(path.join(root, ".gantry", "sample.md"), validMarkdown, "utf8");
+
+  const port = await startEditor(t, root, "sample");
+  const res = await fetch(`http://127.0.0.1:${port}/api/doc`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: "{ not valid json",
+  });
+  const body = await res.json();
+  assert.equal(res.status, 500);
+  assert.equal(body.ok, false);
 });
