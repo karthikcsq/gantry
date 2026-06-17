@@ -6,3 +6,5 @@ gantry-editor-examples
 # Skill-managed local state and scratch artifacts
 .gantry/
 image.png
+.codex/
+.claude/
