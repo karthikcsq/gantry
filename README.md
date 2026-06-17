@@ -2,11 +2,11 @@
 
 **Stay in the design loop while AI writes the code.**
 
-gantry is a Claude Code / Codex skill that runs one primitive — collaborative pseudocode with a hard approval gate before any code is written — so the code stays comprehensible to its author (and onboarders) months later.
+gantry is a Claude Code / Codex skill that runs one primitive — collaborative pseudocode with a hard approval gate before any code is written — so the code stays comprehensible to its author (and onboarders) months later. On invocation it inspects the working tree and routes to one of three modes:
 
-- **`/gantry`** — forward authorship on new code. You write detailed pseudocode (or ask the AI to draft it); the AI resolves references and surfaces edge cases inline; you explicitly approve; the AI translates the approved pseudocode into the body.
-- **rebuild mode** — the same primitive in reverse on existing code. You write pseudocode of what you *think* a function does; the AI compares it to the real body; the mismatches are your mental-model gaps.
-- **learn mode** — a short tutorial that teaches the workflow on one of your own functions.
+- **Forward mode** — authoring something new (no doc, no matching source). You write detailed pseudocode (or ask the AI to draft it); the AI resolves references and surfaces edge cases inline; you explicitly approve; the AI translates the approved pseudocode into the body.
+- **Continue mode** — a `.gantry/<slug>.md` already exists. You're extending or revisiting an existing design; the AI drift-checks against the current code first, then you keep authoring.
+- **Rebuild mode** — the source exists but no doc. The same primitive in reverse: you write pseudocode of what you *think* a function does, the AI compares it to the real body, and the mismatches are your mental-model gaps.
 
 The artifact (`.gantry/<slug>.md`) is the source of truth: what was decided, what edge cases were surfaced, what was accepted/edited/rejected and why, and the code as it was written at gantry-time.
 
@@ -41,8 +41,9 @@ Install the gantry skill for me, end to end:
 3. Confirm: list ~/.claude/skills/gantry and verify SKILL.md is present.
 
 4. Tell me the install succeeded and that I can now run /gantry. Mention
-   that /gantry has three modes — forward authorship on new code, rebuild
-   on existing code, and a learn tutorial — and offer to start the tutorial.
+   that /gantry routes to one of three modes based on the working tree —
+   forward authorship on new code, continue on an existing gantry doc, and
+   rebuild on existing code — and ask what I'd like to start with.
 
 To update gantry later, `git pull` in ~/.gantry-src (link installs pick it
 up automatically; copy installs need the installer re-run).
@@ -86,9 +87,9 @@ Once installed, restart your agent so it picks up the new skill, then:
 /gantry <optional-slug> <optional-source-hint>
 ```
 
-- New function or feature → just `/gantry`, then describe what you're building.
+- New function or feature → just `/gantry`, then describe what you're building (forward mode).
+- Returning to an existing design → `/gantry <slug>`; gantry drift-checks the doc and continues (continue mode).
 - Auditing existing code → `/gantry <slug> path/to/file.ts` or a symbol name; gantry runs rebuild mode.
-- First time → ask gantry to run the learn tutorial.
 
 gantry will open the browser editor for drafting and reviewing docs as part of the workflow. You can also drive it directly from the cloned checkout:
 
