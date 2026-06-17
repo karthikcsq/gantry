@@ -16,6 +16,41 @@ When invoked, gantry accepts up to two optional arguments: a slug and a source h
 - **slug** — optional. If omitted, ask the engineer "what are you building?" and derive a slug from their one-liner.
 - **source hint** — optional path or symbol (e.g., `src/vendor/search.ts` or `searchVendors`). Used in rebuild mode to point at existing code.
 - **draft request** — optional natural-language ask such as "draft pseudocode for me" or "start with an AI draft." Only honored when explicit; otherwise the engineer writes first.
+- **help** — reserved. If the only argument is `help`, `--help`, or `-h`, or the engineer asks how to use gantry (e.g. "how does gantry work?", "teach me gantry"), do **not** create a slug or route to a mode. Run [Help mode](#help-mode) instead.
+
+## Help mode
+
+Triggered by `/gantry help` (or `--help`/`-h`, or a plain "how do I use gantry?"). Do not scaffold, do not infer a mode, do not touch the working tree. Print the guide below to chat verbatim (adjust only the invocation syntax to the host agent), then stop and ask what the engineer wants to build. This is a teaching response, not a workflow turn.
+
+---
+
+**gantry — stay in the design loop while AI writes the code.**
+
+You design in pseudocode, gantry surfaces what you missed, you approve, *then* it writes the body. The `.gantry/<slug>.md` doc is the lasting record of what was decided and why.
+
+**Start by just running `/gantry`** — describe what you're building in one sentence and gantry picks the right mode from your working tree:
+
+- **Forward** — new code (no doc, no source yet). You write pseudocode (or ask "draft it for me"); gantry surfaces refs, edge cases, feature gaps, and ripples inline; you approve; it translates to code.
+- **Continue** — `/gantry <slug>` when a doc already exists. Gantry drift-checks the doc against current source first, then you keep authoring.
+- **Rebuild** — `/gantry <slug> path/to/file.ts` (or a symbol) when source exists but no doc. You write pseudocode of what you *think* the code does; gantry flags the mismatches — those are your mental-model gaps.
+
+**The one rule:** no code is written while any `- [ ]` is unresolved in the doc. Clear the gate, then say "write the code."
+
+**Resolving what gantry surfaces** — in the browser editor (gantry opens it for you) or in chat:
+- *accept* — it's right, check it off.
+- *reject* — "won't happen, validated upstream" (give the reason).
+- *edit* — "actually, parameterize it, default 20."
+
+**Typical first session:**
+1. `/gantry` → "I'm building vendor search."
+2. Write rough pseudocode in the editor (or ask gantry to draft it).
+3. Say "ready" → gantry annotates edge cases and refs.
+4. Resolve each annotation.
+5. Say "write the code" → gantry implements and snapshots the code into the doc.
+
+Run `/gantry` whenever you want to start. What would you like to build?
+
+---
 
 ## Browser editor
 
@@ -126,6 +161,8 @@ Slide an n-gram window; cut the earlier span over a similarity threshold.
 Structure is driven entirely by the `id`/`fork`/`path` attributes, not by indentation — a path belongs to the fork named in its `fork=` attribute, and a given belongs to the path named in its `path=` attribute (top-level givens omit `path=`). Indentation in the file is cosmetic.
 
 ## State inference (first thing the skill does)
+
+If the invocation is a help request (`help`/`--help`/`-h`, or "how do I use gantry?"), short-circuit to [Help mode](#help-mode) before anything below — never treat `help` as a slug.
 
 When the slug is omitted, do not immediately create a new slug from the description. First search existing gantry docs for a plausible match, then derive a new slug only if none match.
 

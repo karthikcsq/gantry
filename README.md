@@ -90,6 +90,7 @@ Once installed, restart your agent so it picks up the new skill, then:
 - New function or feature → just `/gantry`, then describe what you're building (forward mode).
 - Returning to an existing design → `/gantry <slug>`; gantry drift-checks the doc and continues (continue mode).
 - Auditing existing code → `/gantry <slug> path/to/file.ts` or a symbol name; gantry runs rebuild mode.
+- Not sure how it works → `/gantry help` prints a short guide to the three modes, the approval gate, and a typical first session.
 
 gantry will open the browser editor for drafting and reviewing docs as part of the workflow. You can also drive it directly from the cloned checkout:
 
