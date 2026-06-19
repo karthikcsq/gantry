@@ -30,7 +30,27 @@ if (command === "serve") {
   process.exitCode = 1;
 }
 
-function serve({ root, slug, port, open = true }) {
+async function serve({ root, slug, port, open = true }) {
+  // Lint the requested doc before serving so a missing or malformed file surfaces
+  // in the console (and tells the engineer exactly what to fix), rather than only
+  // showing up as a load error in the browser. Issues are reported, not fatal —
+  // the editor still opens so the file can be fixed in place.
+  if (slug) {
+    try {
+      const result = lintGantryMarkdown(await readMarkdown(root, slug));
+      if (result.ok) {
+        console.log(`Lint: clean — ${slug}`);
+      } else {
+        console.log(`Lint: ${result.errors.length} issue(s) in ${slug}:`);
+        for (const error of result.errors) {
+          console.error(`  ${error.line}: ${error.code}: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Could not open "${slug}": ${error.message}`);
+    }
+  }
+
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://localhost");
