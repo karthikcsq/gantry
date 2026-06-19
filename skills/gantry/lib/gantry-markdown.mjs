@@ -288,6 +288,12 @@ export function lintGantryMarkdown(markdown, options = {}) {
     seen.add(fork.id);
     if (fork.paths.length < 2) {
       errors.push(issue("invalid-fork", fork.markerLine, "Fork must offer at least two paths."));
+    } else if (!fork.paths.some(isMultiStepPath)) {
+      // A fork is only justified when picking a path commits the engineer to a
+      // genuine multi-step sub-flow. If every path is a single step (or empty)
+      // with no nested fork, the decision is a one-answer pick — that's a choice
+      // item (mode=choice), not a fork.
+      errors.push(issue("fork-not-branching", fork.markerLine, "Fork has no multi-step path — use a choice item (mode=choice) instead."));
     }
     if (fork.pathId && !pathIds.has(fork.pathId)) {
       errors.push(issue("unknown-parent", fork.markerLine, `Nested fork references unknown path "${fork.pathId}".`));
@@ -313,13 +319,24 @@ export function lintGantryMarkdown(markdown, options = {}) {
   }
 
   if (options.gate) {
+    // A step or fork left under a rejected path is moot — the engineer dropped that
+    // branch, so its leftover marker (which serialization keeps as-is) must not trip
+    // the gate. Resolve ancestry once and skip anything beneath a dropped path.
+    const pathById = new Map();
+    const forkById = new Map();
+    for (const fork of parsed.forks) {
+      forkById.set(fork.id, fork);
+      for (const path of fork.paths) pathById.set(path.id, path);
+    }
+    const live = (node) => !underRejectedPath(node, pathById, forkById);
+
     for (const item of parsed.items.filter((item) => item.status === "open")) {
       errors.push(issue("unresolved-gate", item.itemLine, `Unresolved ${item.type} item blocks code writing.`));
     }
-    for (const step of parsed.aiSteps.filter((step) => step.status === "open")) {
+    for (const step of parsed.aiSteps.filter((step) => step.status === "open" && live(step))) {
       errors.push(issue("unresolved-step", step.markerLine, "Unresolved AI step blocks code writing."));
     }
-    for (const fork of parsed.forks.filter((fork) => fork.status === "open")) {
+    for (const fork of parsed.forks.filter((fork) => fork.status === "open" && live(fork))) {
       errors.push(issue("unresolved-fork", fork.markerLine, "Unresolved fork blocks code writing — pick a path or drop it."));
     }
   }
@@ -534,4 +551,29 @@ function statusError(message, statusCode) {
 
 function linesSafe(lines, index) {
   return lines[index] ?? "";
+}
+
+// A path is a genuine multi-step sub-flow when it owns two or more steps, or holds
+// a nested fork (its own branching). A path with a single step (or none) is just a
+// one-answer option — a choice, not a branch.
+function isMultiStepPath(path) {
+  const children = path.children ?? [];
+  const stepCount = children.filter((child) => child.kind === "step").length;
+  const hasNestedFork = children.some((child) => child.kind === "fork");
+  return stepCount >= 2 || hasNestedFork;
+}
+
+// Walk a step/fork's ancestor chain (path → owning fork → that fork's path → …).
+// Returns true if any path in the chain was rejected, meaning the node sits under
+// a dropped branch and its own status is moot for the gate.
+function underRejectedPath(node, pathById, forkById) {
+  let pathId = node.pathId;
+  while (pathId) {
+    const path = pathById.get(pathId);
+    if (!path) break;
+    if (path.status === "reject") return true;
+    const fork = path.forkId ? forkById.get(path.forkId) : null;
+    pathId = fork ? fork.pathId : null;
+  }
+  return false;
 }

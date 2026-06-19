@@ -59,11 +59,15 @@ fork: Detect & cut repeated takes?
 <!-- gantry:path id=gty-cc-takes-a fork=gty-cc-takes status=open -->
 path: A — LLM adjudication
 <!-- gantry:step id=gty-cc-a1 author=ai status=open path=gty-cc-takes-a -->
-Cluster restarts → emit cuts.
+Cluster restarts via LLM adjudication.
+<!-- gantry:step id=gty-cc-a2 author=ai status=open path=gty-cc-takes-a -->
+Keep the last take in each cluster; emit cuts.
 <!-- gantry:path id=gty-cc-takes-b fork=gty-cc-takes status=open -->
 path: B — deterministic fuzzy n-gram
 <!-- gantry:step id=gty-cc-b1 author=ai status=open path=gty-cc-takes-b -->
-Slide window → cut earlier span.
+Slide an n-gram window over the transcript.
+<!-- gantry:step id=gty-cc-b2 author=ai status=open path=gty-cc-takes-b -->
+Cut the earlier span over the similarity threshold.
 <!-- gantry:step id=gty-cc-render author=ai status=open -->
 Merge cuts → render one pass.
 
@@ -84,7 +88,7 @@ test("round-trips a givens/forks draft unchanged", () => {
 
 test("parses givens, forks, and nested paths into ordered blocks", () => {
   const parsed = parseGantryMarkdown(draftMarkdown);
-  assert.equal(parsed.aiSteps.length, 4);
+  assert.equal(parsed.aiSteps.length, 6);
   assert.equal(parsed.forks.length, 1);
 
   const fork = parsed.forks[0];
@@ -92,7 +96,7 @@ test("parses givens, forks, and nested paths into ordered blocks", () => {
   assert.equal(fork.status, "open");
   assert.equal(fork.paths.length, 2);
   assert.equal(fork.paths[0].id, "gty-cc-takes-a");
-  assert.equal(fork.paths[0].children.length, 1);
+  assert.equal(fork.paths[0].children.length, 2);
   assert.equal(fork.paths[0].children[0].id, "gty-cc-a1");
 
   // Top-level blocks: step, fork, step (path-nested steps stay under the fork).
@@ -143,6 +147,39 @@ test("gate blocks on unresolved givens and forks, clears when resolved", () => {
     .replace("gantry:fork id=gty-cc-takes status=open", "gantry:fork id=gty-cc-takes status=gty-cc-takes-a");
   const clear = lintGantryMarkdown(resolved, { gate: true });
   assert.equal(clear.ok, true, JSON.stringify(clear.errors));
+});
+
+test("gate ignores an open AI step left under a rejected path", () => {
+  const rejectedPathMarkdown = `# rejected-path-gate
+
+**Target:** dropped branches must not trip the gate
+
+## Pseudocode
+
+<!-- gantry:step id=gty-rp-args author=ai status=accept -->
+Parse args.
+<!-- gantry:fork id=gty-rp-takes status=gty-rp-takes-b -->
+fork: which approach?
+<!-- gantry:path id=gty-rp-takes-a fork=gty-rp-takes status=reject -->
+path: A — rejected approach
+<!-- gantry:step id=gty-rp-a1 author=ai status=open path=gty-rp-takes-a -->
+Leftover open marker under the dropped path.
+<!-- gantry:step id=gty-rp-a2 author=ai status=open path=gty-rp-takes-a -->
+Another leftover open step under the dropped path.
+<!-- gantry:path id=gty-rp-takes-b fork=gty-rp-takes status=pick -->
+path: B — chosen approach
+<!-- gantry:step id=gty-rp-b1 author=ai status=accept path=gty-rp-takes-b -->
+Chosen step one, approved.
+<!-- gantry:step id=gty-rp-b2 author=ai status=accept path=gty-rp-takes-b -->
+Chosen step two, approved.
+
+## Code (as written 2026-06-18 @ none)
+
+empty
+`;
+  const result = lintGantryMarkdown(rejectedPathMarkdown, { gate: true });
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert(!result.errors.some((error) => error.code === "unresolved-step"));
 });
 
 test("a fork comment proposes a path, persists, and resolves the gate (edit)", () => {
@@ -228,6 +265,36 @@ path: A — the only option
 `;
   const result = lintGantryMarkdown(bad);
   assert(result.errors.some((error) => error.code === "invalid-fork"));
+});
+
+test("lint rejects a fork whose paths are all single steps (should be a choice item)", () => {
+  const mcqAsFork = `# x
+
+## Pseudocode
+
+<!-- gantry:fork id=gty-pick status=open -->
+fork: which error should login show?
+<!-- gantry:path id=gty-pick-a fork=gty-pick status=open -->
+path: A — retry error
+<!-- gantry:step id=gty-pick-a1 author=ai status=open path=gty-pick-a -->
+Show a support/retry error.
+<!-- gantry:path id=gty-pick-b fork=gty-pick status=open -->
+path: B — recreate identity
+<!-- gantry:step id=gty-pick-b1 author=ai status=open path=gty-pick-b -->
+Recreate the missing auth identity, then send OTP.
+`;
+  const flagged = lintGantryMarkdown(mcqAsFork);
+  assert(flagged.errors.some((error) => error.code === "fork-not-branching"));
+
+  // Give one path a real multi-step sub-flow and the fork is justified.
+  const branching = mcqAsFork.replace(
+    "Recreate the missing auth identity, then send OTP.\n",
+    "Recreate the missing auth identity.\n" +
+      "<!-- gantry:step id=gty-pick-b2 author=ai status=open path=gty-pick-b -->\n" +
+      "Send OTP and establish the session.\n",
+  );
+  const ok = lintGantryMarkdown(branching);
+  assert(!ok.errors.some((error) => error.code === "fork-not-branching"));
 });
 
 test("updates steps, decisions, choices, and comments", () => {
