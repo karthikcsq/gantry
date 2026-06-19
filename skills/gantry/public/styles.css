@@ -583,6 +583,7 @@ textarea::placeholder {
   border: 1px solid var(--line-strong);
   height: 18px;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 .statusbar button:hover {
   border-color: var(--blue);
@@ -593,6 +594,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   font-family: var(--font-mono);
+  flex-shrink: 0;
 }
 
 .path-form .dir,
@@ -617,8 +619,15 @@ textarea::placeholder {
   flex: 1 1 auto;
 }
 
+/* The status owns the bar's free space but must never push the gate/buttons off
+   it: a long gate error clips to one line with an ellipsis (full text on hover)
+   instead of expanding the bar. min-width:0 lets a flex item shrink below content. */
 .status {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .status.error {
   color: var(--red);
@@ -631,6 +640,16 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 7px;
+  flex-shrink: 0;
+}
+
+/* White box drawn around the first unresolved component when a gate check fails,
+   after scrolling it into view. Outline (not border) so it never shifts layout and
+   hugs the element's rounded corners; it persists until the next gate check. */
+.gate-highlight {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .meter {

@@ -12,6 +12,9 @@ const tabNameEl = document.querySelector("#tab-name");
 
 let model = null;
 let slug = new URLSearchParams(location.search).get("slug") ?? "";
+// Gate items grouped by the step they annotate, rebuilt each render so the
+// approval renderer can attach them inline (deep path-nested steps included).
+let stepItemIndex = new Map();
 
 if (slug) {
   slugInput.value = slug.replace(/\.md$/i, "");
@@ -110,11 +113,45 @@ async function checkGate(showSuccess) {
   const response = await fetch(`/api/lint?gate=1&slug=${encodeURIComponent(slug)}`);
   const data = await response.json();
   if (!response.ok || !data.ok) {
-    const detail = data.errors?.map((error) => `${error.line}: ${error.message}`).join("; ");
-    setStatus(detail || data.error || "gate failed", "error");
+    // No red error spam in the bar — the white box + scroll to the first open
+    // item is the feedback. Clear any stale status so nothing lingers.
+    setStatus("", "");
+    revealFirstOpen();
   } else if (showSuccess) {
     setStatus("gate clear", "ok");
   }
+}
+
+// Scroll to and draw a white box around the first unresolved gate component so a
+// failed gate check points the engineer straight at what still needs a decision
+// instead of leaving them to hunt. Components under a rejected path are moot (the
+// branch was dropped) and skipped — matching the server gate, which skips them too.
+function revealFirstOpen() {
+  // Only the current first-open item carries the box — clear any prior one.
+  document.querySelectorAll(".gate-highlight").forEach((el) => el.classList.remove("gate-highlight"));
+  const target = firstOpenComponent();
+  if (!target) return;
+  // A rejected path renders collapsed, and a blocker can also sit inside a path the
+  // engineer hand-collapsed — expand every collapsed ancestor so it's actually visible.
+  for (let p = target.closest(".path.collapsed"); p; p = p.parentElement?.closest(".path.collapsed")) {
+    p.classList.remove("collapsed");
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.add("gate-highlight");
+}
+
+// The first open gate component in document order — an open item, AI step, or fork
+// not sitting under a rejected path. DOM order matches document order, so the first
+// match is the topmost blocker.
+function firstOpenComponent() {
+  const open = document.querySelectorAll(
+    '.gate-line[data-status="open"], .step.ai[data-status="open"], .fork[data-status="open"]'
+  );
+  for (const el of open) {
+    if (el.closest('.path[data-status="reject"]')) continue;
+    return el;
+  }
+  return null;
 }
 
 function render() {
@@ -125,28 +162,19 @@ function render() {
     list.push(item);
     itemsByStep.set(item.stepId, list);
   }
+  stepItemIndex = itemsByStep;
 
   renderDocumentLead();
 
-  // Three rendering states:
-  //  • drafting   — no AI content yet → one freeform field.
-  //  • approval   — AI drafted steps/forks → pseudocode steps you approve,
-  //                 plus the forks you must decide.
-  //  • annotation — ref/edge/feat/ripple items exist → per-step gate view.
-  if (isDraftingMode()) {
+  // There are no "modes". A gantry doc is one thing: an ordered list of steps,
+  // each with an `author` (user steps default to accepted, AI steps to open) and
+  // any gate items the AI surfaced against them, plus forks. We always render that
+  // one list (renderReview). The only exception is a blank doc with nothing written
+  // yet — there's no list to render, so we show a freeform field to start writing.
+  if (isEmptyDoc()) {
     bufferEl.append(renderFreeform());
-  } else if (isApprovalMode()) {
-    renderApproval();
   } else {
-    model.steps.forEach((step, index) => {
-      const stepItems = itemsByStep.get(step.id) ?? [];
-      bufferEl.append(renderStep(step, index, stepItems));
-    });
-
-    if (model.steps.length === 0) {
-      const empty = line("plain", "No numbered pseudocode steps found.");
-      bufferEl.append(empty);
-    }
+    renderReview();
   }
 
   renderGate();
@@ -169,10 +197,11 @@ function buildOverview() {
   overviewRowsEl.replaceChildren();
 
   const scrollable = document.documentElement.scrollHeight > window.innerHeight + 8;
-  // The outline maps to per-step DOM; in freeform drafting there are no step
-  // elements to jump to, so hide it.
+  // The outline maps numbered plain steps to per-step DOM. It's hidden for a blank
+  // doc (nothing to jump to) and for AI-annotated docs (whose forks/AI steps the
+  // simple numbered outline can't represent) — leaving it for plain step docs.
   overviewEl.hidden =
-    !scrollable || !model || model.steps.length === 0 || isDraftingMode() || isApprovalMode();
+    !scrollable || !model || model.steps.length === 0 || isEmptyDoc() || hasDraftContent();
   bufferEl.classList.toggle("with-outline", !overviewEl.hidden);
   if (overviewEl.hidden) return;
 
@@ -247,14 +276,11 @@ function renderDocumentLead() {
   bufferEl.append(sectionHeader("Pseudocode", sectionCount()));
 }
 
-// The count chip next to the "Pseudocode" header: step count in annotation mode,
-// step+fork count in approval mode, nothing while drafting.
+// The count chip next to the "Pseudocode" header: every step (either author) plus
+// forks. Nothing while the doc is still blank.
 function sectionCount() {
-  if (isDraftingMode()) return undefined;
-  if (isApprovalMode()) {
-    return (model.blocks ?? []).filter((block) => block.kind === "step").length + (model.forks?.length ?? 0);
-  }
-  return model.steps.length;
+  if (isEmptyDoc()) return undefined;
+  return (model.blocks ?? []).filter((block) => block.kind === "step").length + (model.forks?.length ?? 0);
 }
 
 function docTitle(text) {
@@ -308,19 +334,17 @@ function slugName() {
   return (slug || "untitled").replace(/\.md$/i, "");
 }
 
-// Drafting mode = a doc with no AI content at all. This is the "author a new
-// doc" state: the engineer writes freeform pseudocode before asking AI to draft
-// or annotate.
-function isDraftingMode() {
-  return Boolean(model) && model.items.length === 0 && !hasDraftContent();
+// A blank doc — nothing authored yet (no steps of either author, no forks, no
+// gate items). There's no list to render, so the freeform field is shown as the
+// starting surface for writing pseudocode. Everything else renders the one list.
+function isEmptyDoc() {
+  if (!model) return true;
+  const steps = (model.steps?.length ?? 0) + (model.aiSteps?.length ?? 0);
+  return steps === 0 && (model.forks?.length ?? 0) === 0 && model.items.length === 0;
 }
 
-// Approval mode = AI has drafted pseudocode (steps and/or forks) and the
-// engineer hasn't moved on to the annotation pass yet.
-function isApprovalMode() {
-  return Boolean(model) && model.items.length === 0 && hasDraftContent();
-}
-
+// True once the AI has drafted steps or forks — used only to decide whether the
+// step outline (which maps to plain numbered steps) is meaningful, not as a mode.
 function hasDraftContent() {
   return Boolean(model) && ((model.aiSteps?.length ?? 0) > 0 || (model.forks?.length ?? 0) > 0);
 }
@@ -367,13 +391,14 @@ function pseudocodeBody(markdown) {
     .trim();
 }
 
-// ---- Approval mode: pseudocode steps you approve + forks you decide ---------
+// ---- The one rendered view: the doc's steps, forks, and gate items ----------
 
 // Every line is a step. A user step is already approved and renders plainly; an
 // AI step is identical except it carries accept/reject/edit controls until you
 // resolve it. Steps are numbered in document order; forks sit inline; a run of
-// consecutive AI steps shares one block-scoped "approve all".
-function renderApproval() {
+// consecutive AI steps shares one block-scoped "approve all"; gate items render
+// beneath the step they annotate.
+function renderReview() {
   const blocks = model.blocks ?? [];
   let number = 0;
   let i = 0;
@@ -394,9 +419,17 @@ function renderApproval() {
       number += run.length;
     } else {
       number += 1;
-      bufferEl.append(renderApprovalStep(block, number));
+      bufferEl.append(renderReviewStep(block, number));
       i += 1;
     }
+  }
+
+  // Safety net: an item whose stepId matches no step in the tree (malformed or
+  // stale reference) would otherwise render nowhere and silently vanish — surface
+  // it at the end so the gate count and the visible doc never disagree.
+  const rendered = new Set([...(model.aiSteps ?? []), ...(model.steps ?? [])].map((step) => step.id));
+  for (const item of model.items.filter((item) => !rendered.has(item.stepId))) {
+    bufferEl.append(renderItem(item));
   }
 }
 
@@ -423,7 +456,7 @@ function renderStepRun(run, startNumber) {
   head.append(approveAll);
   wrap.append(head);
 
-  run.forEach((step, idx) => wrap.append(renderApprovalStep(step, startNumber + idx)));
+  run.forEach((step, idx) => wrap.append(renderReviewStep(step, startNumber + idx)));
   return wrap;
 }
 
@@ -431,7 +464,7 @@ function renderStepRun(run, startNumber) {
 // difference for an AI step: accept ✓ / reject × controls in the gutter and a
 // comment box (a non-empty comment is a proposed edit). User steps get neither —
 // they're already the engineer's design. Pass number=null for a path-nested step.
-function renderApprovalStep(step, number) {
+function renderReviewStep(step, number) {
   const block = document.createElement("section");
   block.className = "step";
   block.dataset.stepId = step.id;
@@ -494,6 +527,11 @@ function renderApprovalStep(step, number) {
     });
     block.append(comments);
   }
+
+  // Gate items the AI surfaced against this step (ref/edge/feat/ripple) render
+  // inline beneath it — same per-step gate view annotation mode uses — so a
+  // rebuild/forward doc that carries both steps and items shows everything.
+  for (const item of stepItemIndex.get(step.id) ?? []) block.append(renderItem(item));
   return block;
 }
 
@@ -563,7 +601,10 @@ function renderForkBlock(fork, depth = 0) {
       for (const path of fork.paths) path.status = "open";
     } else {
       fork.status = "reject";
-      for (const path of fork.paths) path.status = "reject";
+      for (const path of fork.paths) {
+        path.status = "reject";
+        rejectBranch(path);
+      }
     }
     render();
   });
@@ -664,7 +705,7 @@ function renderPath(fork, path, index, depth = 0) {
   } else {
     // A path holds steps and, recursively, nested forks (one level deeper).
     for (const child of children) {
-      body.append(child.kind === "fork" ? renderForkBlock(child, depth + 1) : renderApprovalStep(child, null));
+      body.append(child.kind === "fork" ? renderForkBlock(child, depth + 1) : renderReviewStep(child, null));
     }
   }
   sec.append(body);
@@ -683,16 +724,43 @@ function choosePath(fork, path, action) {
     } else {
       fork.status = path.id;
       for (const candidate of fork.paths) {
-        candidate.status = candidate.id === path.id ? "pick" : "reject";
+        const picked = candidate.id === path.id;
+        candidate.status = picked ? "pick" : "reject";
+        // Picking one path drops its siblings — cascade the drop onto their child
+        // steps/forks so the whole branch resolves instead of leaving open markers
+        // that still trip the gate. The picked branch keeps its own review states.
+        if (!picked) rejectBranch(candidate);
       }
     }
   } else {
-    path.status = path.status === "reject" ? "open" : "reject";
+    const nowRejected = path.status !== "reject";
+    path.status = nowRejected ? "reject" : "open";
+    if (nowRejected) rejectBranch(path);
     // Fork is "picked" only if some path is explicitly pick; otherwise open.
     const picked = fork.paths.find((candidate) => candidate.status === "pick");
     fork.status = picked ? picked.id : "open";
   }
   render();
+}
+
+// Cascade a drop onto everything beneath a path: child AI steps and nested forks
+// (and the paths under those forks) are marked rejected too, so dropping a branch
+// resolves its whole subtree instead of leaving orphaned open markers that still
+// trip the gate. One-directional by design — reviving a branch returns its paths
+// to open and lets the engineer re-review the steps rather than silently undoing
+// approvals that may have been deliberate.
+function rejectBranch(path) {
+  for (const child of path.children ?? []) {
+    if (child.kind === "step" && child.author === "ai") {
+      child.status = "reject";
+    } else if (child.kind === "fork") {
+      child.status = "reject";
+      for (const sub of child.paths ?? []) {
+        sub.status = "reject";
+        rejectBranch(sub);
+      }
+    }
+  }
 }
 
 // A fork resolves by picking a path, dropping it, or proposing a different path
@@ -719,32 +787,6 @@ function forkStateName(fork) {
 // now lives in the chip, so the title is just the description.
 function stripPathKey(title) {
   return (title ?? "").replace(/^\s*[A-Za-z]\s*[—–:-]\s+/, "").trim();
-}
-
-function renderStep(step, index, stepItems) {
-  const block = document.createElement("section");
-  block.className = "step";
-  block.dataset.stepId = step.id;
-
-  const stepLine = document.createElement("div");
-  stepLine.className = "step-line";
-
-  const number = document.createElement("span");
-  number.className = "md-number";
-  number.textContent = `${index + 1}`;
-  stepLine.append(number);
-
-  const text = document.createElement("textarea");
-  text.dataset.field = "step-text";
-  text.setAttribute("aria-label", `Step ${index + 1}`);
-  text.value = withoutNumber(step.text);
-  autosize(text);
-  text.addEventListener("input", () => autosize(text));
-  stepLine.append(text);
-  block.append(stepLine);
-
-  for (const item of stepItems) block.append(renderItem(item));
-  return block;
 }
 
 function renderItem(item) {
@@ -892,62 +934,55 @@ function renderEmptyShell() {
 }
 
 function collectUpdates() {
-  // Drafting mode sends the freeform pseudocode body; the server replaces the
-  // whole section with it. No step/item round-trip in this state.
+  // A blank doc is authored through the freeform field; the server replaces the
+  // whole Pseudocode section with it verbatim. No structured round-trip yet.
   const freeform = document.querySelector('[data-field="pseudocode-freeform"]');
   if (freeform) {
     return { slug, pseudocode: freeform.value };
   }
 
-  // Approval mode: AI steps carry status + text + comments; user steps carry
-  // text; forks/paths carry resolution + title. The block tree is the source of
-  // truth (mutated on click/input).
-  if (isApprovalMode()) {
-    return {
-      slug,
-      steps: (model.blocks ?? [])
-        .filter((block) => block.kind === "step" && block.author === "user")
-        .map((block) => ({ id: block.id, text: block.text })),
-      aiSteps: model.aiSteps.map((step) => ({
-        id: step.id,
-        text: step.text,
-        status: effectiveStepStatus(step),
-        comments: step.comments ?? [],
+  // One unified payload for the one rendered list: user steps carry text; AI steps
+  // carry text + status + comments; forks/paths carry their resolution; gate items
+  // carry their decision. The block tree is mutated in place on click/input, and
+  // items are read from their rendered gate-lines.
+  return {
+    slug,
+    steps: (model.blocks ?? [])
+      .filter((block) => block.kind === "step" && block.author === "user")
+      .map((block) => ({ id: block.id, text: block.text })),
+    aiSteps: model.aiSteps.map((step) => ({
+      id: step.id,
+      text: step.text,
+      status: effectiveStepStatus(step),
+      comments: step.comments ?? [],
+    })),
+    forks: model.forks.map((fork) => ({
+      id: fork.id,
+      // Persist "edit" when the fork is resolved by a proposed-path comment;
+      // otherwise the picked-path id, "reject", or "open".
+      status: effectiveForkStatus(fork) === "edit" ? "edit" : fork.status,
+      title: fork.title,
+      comments: fork.comments ?? [],
+    })),
+    paths: model.forks.flatMap((fork) =>
+      fork.paths.map((path) => ({
+        id: path.id,
+        status: path.status,
+        title: path.title,
+        forkId: fork.id,
       })),
-      forks: model.forks.map((fork) => ({
-        id: fork.id,
-        // Persist "edit" when the fork is resolved by a proposed-path comment;
-        // otherwise the picked-path id, "reject", or "open".
-        status: effectiveForkStatus(fork) === "edit" ? "edit" : fork.status,
-        title: fork.title,
-        comments: fork.comments ?? [],
-      })),
-      paths: model.forks.flatMap((fork) =>
-        fork.paths.map((path) => ({
-          id: path.id,
-          status: path.status,
-          title: path.title,
-          forkId: fork.id,
-        })),
-      ),
-    };
-  }
-
-  const steps = [...document.querySelectorAll(".step")].map((step, index) => ({
-    id: step.dataset.stepId,
-    text: `${index + 1}. ${step.querySelector('[data-field="step-text"]').value.trim()}`,
-  }));
-  const items = [...document.querySelectorAll(".gate-line")].map((itemEl) => ({
-    id: itemEl.dataset.itemId,
-    text: itemEl.querySelector('[data-field="item-text"]').value,
-    status: itemEl.dataset.status,
-    comments: itemEl
-      .querySelector('[data-field="comments"]')
-      .value.split("\n")
-      .map((comment) => comment.replace(/^\s*-\s*comment:\s*/, "").trim())
-      .filter(Boolean),
-  }));
-  return { slug, steps, items };
+    ),
+    items: [...document.querySelectorAll(".gate-line")].map((itemEl) => ({
+      id: itemEl.dataset.itemId,
+      text: itemEl.querySelector('[data-field="item-text"]').value,
+      status: itemEl.dataset.status,
+      comments: itemEl
+        .querySelector('[data-field="comments"]')
+        .value.split("\n")
+        .map((comment) => comment.replace(/^\s*-\s*comment:\s*/, "").trim())
+        .filter(Boolean),
+    })),
+  };
 }
 
 function summarizeLint(errors) {
@@ -960,18 +995,48 @@ function summarizeLint(errors) {
 
 function setStatus(message, kind) {
   statusEl.textContent = message;
+  // The bar clips long gate errors to one line; expose the full text on hover.
+  statusEl.title = message;
   statusEl.className = `status ${kind ?? ""}`;
 }
 
 function modelStats() {
   const aiSteps = model.aiSteps ?? [];
   const forks = model.forks ?? [];
+  // Steps/forks beneath a rejected path are moot — the branch was dropped — so they
+  // count as resolved, matching the server gate. (Counts in total, not in open.)
+  const { pathById, forkById } = pathLookup(model);
+  const live = (node) => !underRejectedPath(node, pathById, forkById);
   const openItems = model.items.filter((item) => effectiveStatus(item) === "open").length;
-  const openSteps = aiSteps.filter((step) => effectiveStepStatus(step) === "open").length;
-  const openForks = forks.filter((fork) => effectiveForkStatus(fork) === "open").length;
+  const openSteps = aiSteps.filter((step) => live(step) && effectiveStepStatus(step) === "open").length;
+  const openForks = forks.filter((fork) => live(fork) && effectiveForkStatus(fork) === "open").length;
   const open = openItems + openSteps + openForks;
   const total = model.items.length + aiSteps.length + forks.length;
   return { steps: model.steps.length, total, resolved: total - open, open };
+}
+
+// Index every path and fork by id so a node's ancestry can be walked. Mirrors the
+// server's gate logic so the meter and the gate agree on what's still open.
+function pathLookup(model) {
+  const pathById = new Map();
+  const forkById = new Map();
+  for (const fork of model.forks ?? []) {
+    forkById.set(fork.id, fork);
+    for (const path of fork.paths ?? []) pathById.set(path.id, path);
+  }
+  return { pathById, forkById };
+}
+
+function underRejectedPath(node, pathById, forkById) {
+  let pathId = node.pathId;
+  while (pathId) {
+    const path = pathById.get(pathId);
+    if (!path) break;
+    if (path.status === "reject") return true;
+    const fork = path.forkId ? forkById.get(path.forkId) : null;
+    pathId = fork ? fork.pathId : null;
+  }
+  return false;
 }
 
 function line(className, text) {
