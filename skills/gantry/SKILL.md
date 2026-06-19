@@ -56,11 +56,7 @@ Run `/gantry` whenever you want to start. What would you like to build?
 
 Gantry includes an optional local browser editor for `.gantry/<slug>.md`. The markdown file remains the only durable source of truth; the editor is just a faster surface for editing pseudocode steps, approving/rejecting AI items, choosing A/B/C options, and attaching comments.
 
-The editor is also the **drafting surface for a brand-new doc**, not only for editing a populated one. It has three states:
-
-- **Drafting** — no AI content yet: a single freeform pseudocode field. The engineer writes loosely (prose, their own numbering, or none) and it is saved verbatim.
-- **Approval** — AI drafted the pseudocode: settled **givens** the engineer approves (per line or per block), plus the **forks** that demand a real decision (pick a path or drop it). No "proposed step" prose on every line.
-- **Annotation** — `ref`/`edge`/`feat`/`ripple` items exist: the per-step gate view for resolving them.
+The editor presents the doc's steps, forks, and gate items as one list and lets the engineer resolve each unresolved one. A brand-new doc with nothing written yet opens to a single freeform field for writing the initial pseudocode, saved verbatim; once it has steps, it presents the list.
 
 Before running any editor, lint, or ids command, locate the editor script and use its absolute path. Check these locations in order:
 
@@ -108,7 +104,7 @@ Editable AI items live under `## Pseudocode`, immediately after the pseudocode s
 ```markdown
 1. Read the query from the request.
 <!-- gantry:item id=gty-ref-query type=ref status=open mode=decision -->
-- [ ] **ref:** should this use `searchParams` or the parsed body?
+- [ ] **ref:** which existing helper already parses this route's request?
   - comment: confirm route shape
 ```
 
@@ -125,6 +121,8 @@ Choice items use `mode=choice` and options A/B/C:
 ```
 
 Valid item types are `ref`, `edge`, `feat`, `ripple`, `update`, and `mismatch`. Valid statuses are `open`, `accept`, `reject`, `edit`, `choice-a`, `choice-b`, and `choice-c`. `open` items still block code writing.
+
+**When a question has distinct alternatives, write them out as a choice item.** Spell each alternative as an option (A, B, C) so the engineer answers by picking one, not by typing a comment. A question phrased "should it be X or Y?" is a two-option choice item, not a `mode=decision` item — the same goes for a fork, where each path is a named alternative. Reserve `mode=decision` (free-text comment) for genuinely open-ended questions that have no enumerable options. For example, "Should login show a retry error, or recreate the missing auth identity before sending OTP?" is a choice: `A: show a retry error` / `B: recreate the identity, then send OTP`.
 
 Annotation items are for the **annotation pass** (after the engineer's design is endorsed). AI-drafted pseudocode uses a different, lighter representation — see [AI-drafted pseudocode: givens and forks](#ai-drafted-pseudocode-givens-and-forks).
 
@@ -143,19 +141,23 @@ Step 0 — normalize source: probe rotation; bake if non-zero, else copy.
 - `author` is `ai` (drafted by AI, must be resolved) or `user` (the engineer's own line, implicitly accepted — usually a plain pseudocode line with no marker at all, rendered with a static approved mark).
 - `status` is `open` | `accept` | `reject` | `edit` — identical to a decision item. Only `open` givens block the gate; a non-empty comment makes a given an `edit`.
 
-A **fork** is the branch decision — the *only* thing that demands an answer. It is a recursive parent: it owns two or more **paths**, and each path owns its own givens. A fork is unresolved (`status=open`) until the engineer picks a path (`status=<path-id>`) or drops the whole fork (`status=reject`). Each path carries `status` `open` | `pick` | `reject`; rejecting a path collapses everything under it.
+A **fork** is the branch decision — the *only* thing that demands an answer. It is a recursive parent: it owns two or more **paths**, and each path owns its own givens. **Use a fork only when picking a path commits the engineer to a multi-step sub-flow:** at least one path must own two or more steps (or hold a nested fork). If every path is a single answer, the decision is a choice item (one MCQ step), not a fork — **the linter enforces this** (`fork-not-branching`). A fork is unresolved (`status=open`) until the engineer picks a path (`status=<path-id>`) or drops the whole fork (`status=reject`). Each path carries `status` `open` | `pick` | `reject`; rejecting a path collapses everything under it.
 
 ```markdown
 <!-- gantry:fork id=gty-cc-takes status=open -->
 fork: How should repeated takes be detected?
 <!-- gantry:path id=gty-cc-takes-llm fork=gty-cc-takes status=open -->
 path: A — LLM adjudication
+<!-- gantry:step id=gty-cc-llm-cluster author=ai status=open path=gty-cc-takes-llm -->
+Send candidate restarts to the LLM; cluster the ones it judges to be the same take.
 <!-- gantry:step id=gty-cc-llm-keep author=ai status=open path=gty-cc-takes-llm -->
-Keep the LAST take; never cut all copies.
+Keep the LAST take in each cluster; never cut all copies.
 <!-- gantry:path id=gty-cc-takes-ngram fork=gty-cc-takes status=open -->
 path: B — deterministic fuzzy n-gram
-<!-- gantry:step id=gty-cc-ngram author=ai status=open path=gty-cc-takes-ngram -->
-Slide an n-gram window; cut the earlier span over a similarity threshold.
+<!-- gantry:step id=gty-cc-ngram-scan author=ai status=open path=gty-cc-takes-ngram -->
+Slide an n-gram window over the transcript; score adjacent spans for similarity.
+<!-- gantry:step id=gty-cc-ngram-cut author=ai status=open path=gty-cc-takes-ngram -->
+Cut the earlier span wherever the score clears the threshold.
 ```
 
 Structure is driven entirely by the `id`/`fork`/`path` attributes, not by indentation — a path belongs to the fork named in its `fork=` attribute, and a given belongs to the path named in its `path=` attribute (top-level givens omit `path=`). Indentation in the file is cosmetic.
@@ -318,9 +320,10 @@ AI-drafted pseudocode is not yet the engineer's design, so it must be endorsed b
 **Your job when drafting is to classify, not to propose everything.** For each line:
 
 - **Clear default, no real alternative → emit a `given`** (`author=ai status=open`). Most lines are givens. They render as clean pseudocode the engineer accepts, rejects, or edits — individually, or a whole block at once via "approve all." A sensible default is not a decision; do not gate it behind prose.
-- **Two or more real implementations where the choice changes what follows → emit a `fork`**, at the point in the pipeline where the branch occurs, with each path owning the givens it implies.
+- **A real decision among discrete options, each a single answer → emit one choice item** (`mode=choice`, options A/B/C). One MCQ step: the engineer picks an option and the decision is done.
+- **A real decision whose alternatives each branch into multiple steps → emit a `fork`**, at the point in the pipeline where the branch occurs, with each path owning the givens it implies. Forks are only for multi-step branches; a single-step choice is a choice item, not a fork.
 
-**The bar for a fork is high, and the integrity of the whole workflow rests on it.** Approving givens in bulk is safe *only because* every genuine decision has been pulled out into a fork that cannot be bulk-resolved. So: **when in doubt, fork — do not given.** If you bury a real alternative inside a given, the engineer can approve past it without ever deciding, and the design record is a lie.
+**Pulling decisions out of givens is what makes the workflow safe.** Approving givens in bulk is safe *only because* every genuine decision has been pulled out — into a choice item or a fork — where it cannot be bulk-resolved. So: **when in doubt, surface the decision (choice item or fork) — do not bury it in a given.** If you hide a real alternative inside a given, the engineer can approve past it without ever deciding, and the design record is a lie. (Choice for a single-answer pick; fork only when the branches each run multiple steps.)
 
 Resolution:
 
