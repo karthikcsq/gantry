@@ -2,7 +2,7 @@
 
 **Stay in the design loop while AI writes the code.**
 
-gantry is a Claude Code / Codex skill that runs one primitive — collaborative pseudocode with a hard approval gate before any code is written — so the code stays comprehensible to its author (and onboarders) months later. On invocation it inspects the working tree and routes to one of three modes:
+gantry is a coding-agent skill for Claude Code, Codex, and generic `.agents`-compatible hosts. It runs one primitive — collaborative pseudocode with a hard approval gate before any code is written — so the code stays comprehensible to its author (and onboarders) months later. On invocation it inspects the working tree and routes to one of three modes:
 
 - **Forward mode** — authoring something new (no doc, no matching source). You write detailed pseudocode (or ask the AI to draft it); the AI resolves references and surfaces edge cases inline; you explicitly approve; the AI translates the approved pseudocode into the body.
 - **Continue mode** — a `.gantry/<slug>.md` already exists. You're extending or revisiting an existing design; the AI drift-checks against the current code first, then you keep authoring.
@@ -16,7 +16,7 @@ The artifact (`.gantry/<slug>.md`) is the source of truth: what was decided, wha
 
 gantry installs with no build step and no npm dependencies — it's a single skill folder backed by Node's standard library. Installation is just: clone the repo to a stable location, then symlink (or copy) the skill into your agent's skills directory.
 
-### One-shot: paste this into Claude Code (or Codex)
+### One-shot: paste this into your coding agent
 
 Open your coding agent in any directory and paste the prompt below. It tells the agent to do the whole install end to end — clone the repo, run the installer, and confirm the skill is live.
 
@@ -30,15 +30,17 @@ Install the gantry skill for me, end to end:
 
 2. Run the installer from that checkout:
    cd ~/.gantry-src && ./install.sh
-   This auto-detects Claude Code and/or Codex and installs gantry at the
-   user level (~/.claude/skills/gantry and ~/.codex/skills/gantry). It
-   symlinks where the OS allows and copies otherwise.
+   This auto-detects Claude Code, Codex, and generic .agents-compatible
+   hosts and installs gantry at the user level (~/.claude/skills/gantry,
+   ~/.codex/skills/gantry, and/or ~/.agents/skills/gantry). It symlinks
+   where the OS allows and copies otherwise.
    On Windows without bash, run the PowerShell installer instead:
    cd ~/.gantry-src; .\install.ps1
-   (If neither runs, copy the folder ~/.gantry-src/skills/gantry to
-   ~/.claude/skills/gantry by hand.)
+   (If neither runs, copy the folder ~/.gantry-src/skills/gantry to your
+   agent's skills directory by hand, for example ~/.agents/skills/gantry.)
 
-3. Confirm: list ~/.claude/skills/gantry and verify SKILL.md is present.
+3. Confirm: list your installed skills directory and verify SKILL.md is
+   present, for example ~/.agents/skills/gantry/SKILL.md.
 
 4. Tell me the install succeeded and that I can now run /gantry. Mention
    that /gantry routes to one of three modes based on the working tree —
@@ -65,13 +67,13 @@ git clone --depth 1 https://github.com/karthikcsq/gantry.git $HOME\.gantry-src
 cd $HOME\.gantry-src; .\install.ps1
 ```
 
-Both installers detect your installed agents and install at the user level by default. The flags are identical in spirit:
+Both installers detect your installed agents and install at the user level by default. Generic `.agents` support is independent of Codex: use `--agents` / `-Agents` to force an install into `.agents/skills/gantry`, or `--no-agents` / `-NoAgents` to skip it. The flags are identical in spirit:
 
 | bash | PowerShell | effect |
 | --- | --- | --- |
-| `--project <path>` | `-Project <path>` | install into a project's `.claude/skills` & `.codex/skills` so teammates get it |
-| `--claude` / `--codex` | `-Claude` / `-Codex` | force a single agent |
-| `--no-claude` / `--no-codex` | `-NoClaude` / `-NoCodex` | skip one agent |
+| `--project <path>` | `-Project <path>` | install into a project's `.claude/skills`, `.codex/skills`, and `.agents/skills` so teammates get it |
+| `--claude` / `--codex` / `--agents` | `-Claude` / `-Codex` / `-Agents` | force a single agent target |
+| `--no-claude` / `--no-codex` / `--no-agents` | `-NoClaude` / `-NoCodex` / `-NoAgents` | skip one agent target |
 
 Link installs (symlink on Unix, directory junction on Windows) pick up `git pull` automatically — no admin or Windows developer mode required. Where the filesystem forbids links, the installer falls back to a plain copy, which needs the installer re-run after pulling updates.
 

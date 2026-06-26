@@ -4,17 +4,18 @@
 
 .DESCRIPTION
   Windows-native counterpart to install.sh. Currently supported:
-    - Claude Code  (target: <root>\.claude\skills\gantry)
-    - Codex        (target: <root>\.codex\skills\gantry;
-                    also <root>\.agents\skills\gantry for older installs)
+    - Claude Code      (target: <root>\.claude\skills\gantry)
+    - Codex            (target: <root>\.codex\skills\gantry)
+    - Generic agents   (target: <root>\.agents\skills\gantry)
 
   Default behavior: detect installed agents, install at user level. Prefers a
   directory junction (works without admin or developer mode), then a symlink,
   then a plain copy. After a copy install, re-run this script to pick up updates.
 
 .PARAMETER Project
-  Install at project level under <path>\.claude\skills and <path>\.codex\skills
-  so teammates get gantry when they clone that repo. Omit for a user-level install.
+  Install at project level under <path>\.claude\skills, <path>\.codex\skills,
+  and <path>\.agents\skills so teammates get gantry when they clone that repo.
+  Omit for a user-level install.
 
 .PARAMETER Claude
   Force install for Claude Code.
@@ -22,11 +23,17 @@
 .PARAMETER Codex
   Force install for Codex.
 
+.PARAMETER Agents
+  Force install for generic .agents.
+
 .PARAMETER NoClaude
   Skip Claude Code.
 
 .PARAMETER NoCodex
   Skip Codex.
+
+.PARAMETER NoAgents
+  Skip generic .agents.
 
 .EXAMPLE
   .\install.ps1
@@ -42,8 +49,10 @@ param(
   [string]$Project,
   [switch]$Claude,
   [switch]$Codex,
+  [switch]$Agents,
   [switch]$NoClaude,
-  [switch]$NoCodex
+  [switch]$NoCodex,
+  [switch]$NoAgents
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,13 +73,12 @@ if ($Project) {
   $scope = "project ($Project)"
   $claudeRoots = @((Join-Path $Project '.claude\skills'))
   $codexRoots  = @((Join-Path $Project '.codex\skills'))
+  $agentsRoots = @((Join-Path $Project '.agents\skills'))
 } else {
   $scope = 'user'
   $claudeRoots = @((Join-Path $UserHome '.claude\skills'))
   $codexRoots  = @((Join-Path $UserHome '.codex\skills'))
-  if (Test-Path -LiteralPath (Join-Path $UserHome '.agents')) {
-    $codexRoots += (Join-Path $UserHome '.agents\skills')
-  }
+  $agentsRoots = @((Join-Path $UserHome '.agents\skills'))
 }
 
 # --- Decide which agents to install for ----------------------------------
@@ -79,12 +87,15 @@ function Test-Claude {
 }
 function Test-Codex {
   (Test-Path -LiteralPath (Join-Path $UserHome '.codex')) -or `
-  (Test-Path -LiteralPath (Join-Path $UserHome '.agents')) -or `
   [bool](Get-Command codex -ErrorAction SilentlyContinue)
+}
+function Test-Agents {
+  Test-Path -LiteralPath (Join-Path $UserHome '.agents')
 }
 
 $installClaude = if ($Claude) { $true } elseif ($NoClaude) { $false } else { [bool](Test-Claude) }
 $installCodex  = if ($Codex)  { $true } elseif ($NoCodex)  { $false } else { [bool](Test-Codex) }
+$installAgents = if ($Agents) { $true } elseif ($NoAgents) { $false } else { [bool](Test-Agents) }
 
 # --- Install helpers ------------------------------------------------------
 function Install-To {
@@ -153,6 +164,12 @@ if ($installCodex) {
   foreach ($root in $codexRoots) { Install-To -TargetRoot $root -AgentName 'Codex' }
 } else {
   Write-Host '  Codex: skipped'
+}
+
+if ($installAgents) {
+  foreach ($root in $agentsRoots) { Install-To -TargetRoot $root -AgentName 'Generic agents' }
+} else {
+  Write-Host '  Generic agents: skipped'
 }
 
 Write-Host ''

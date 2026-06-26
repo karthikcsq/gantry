@@ -61,9 +61,9 @@ The editor presents the doc's steps, forks, and gate items as one list and lets 
 Before running any editor, lint, or ids command, locate the editor script and use its absolute path. Check these locations in order:
 
 1. Project-local development checkout: `skills/gantry/scripts/gantry-editor.mjs`
-2. Codex global install: `~/.codex/skills/gantry/scripts/gantry-editor.mjs`
-3. Claude Code global install: `~/.claude/skills/gantry/scripts/gantry-editor.mjs`
-4. Legacy Codex/agent install: `~/.agents/skills/gantry/scripts/gantry-editor.mjs`
+2. Generic agent global install: `~/.agents/skills/gantry/scripts/gantry-editor.mjs`
+3. Codex global install: `~/.codex/skills/gantry/scripts/gantry-editor.mjs`
+4. Claude Code global install: `~/.claude/skills/gantry/scripts/gantry-editor.mjs`
 
 Then run it with the current repository as `--root`, so the globally installed UI edits this project's `.gantry/` files:
 
