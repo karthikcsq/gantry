@@ -34,8 +34,13 @@ Install the gantry skill for me, end to end:
    hosts and installs gantry at the user level (~/.claude/skills/gantry,
    ~/.codex/skills/gantry, and/or ~/.agents/skills/gantry). It symlinks
    where the OS allows and copies otherwise.
+   If this agent uses a generic .agents directory and that directory does
+   not exist yet, pass its intended agents directory explicitly:
+   cd ~/.gantry-src && ./install.sh --agents-path ~/.agents
    On Windows without bash, run the PowerShell installer instead:
    cd ~/.gantry-src; .\install.ps1
+   For a clean generic .agents install on Windows, pass:
+   cd ~/.gantry-src; .\install.ps1 -AgentsPath $HOME\.agents
    (If neither runs, copy the folder ~/.gantry-src/skills/gantry to your
    agent's skills directory by hand, for example ~/.agents/skills/gantry.)
 
@@ -67,11 +72,12 @@ git clone --depth 1 https://github.com/karthikcsq/gantry.git $HOME\.gantry-src
 cd $HOME\.gantry-src; .\install.ps1
 ```
 
-Both installers detect your installed agents and install at the user level by default. Generic `.agents` support is independent of Codex: use `--agents` / `-Agents` to force an install into `.agents/skills/gantry`, or `--no-agents` / `-NoAgents` to skip it. The flags are identical in spirit:
+Both installers detect your installed agents and install at the user level by default. Generic `.agents` support is independent of Codex: use `--agents` / `-Agents` to force an install into the default `.agents/skills/gantry`, or `--agents-path <path>` / `-AgentsPath <path>` to point at a specific `.agents` directory when a clean machine does not have one yet. Use `--no-agents` / `-NoAgents` to skip it. The flags are identical in spirit:
 
 | bash | PowerShell | effect |
 | --- | --- | --- |
 | `--project <path>` | `-Project <path>` | install into a project's `.claude/skills`, `.codex/skills`, and `.agents/skills` so teammates get it |
+| `--agents-path <path>` | `-AgentsPath <path>` | install generic agent support into `<path>/skills/gantry` |
 | `--claude` / `--codex` / `--agents` | `-Claude` / `-Codex` / `-Agents` | force a single agent target |
 | `--no-claude` / `--no-codex` / `--no-agents` | `-NoClaude` / `-NoCodex` / `-NoAgents` | skip one agent target |
 

@@ -17,6 +17,7 @@ SKILL_SRC="$SCRIPT_DIR/skills/gantry"
 
 SCOPE="user"          # user | project
 PROJECT_PATH=""
+AGENTS_PATH=""
 INSTALL_CLAUDE=auto   # auto | yes | no
 INSTALL_CODEX=auto
 INSTALL_AGENTS=auto
@@ -32,6 +33,8 @@ Scope:
                           Generic agents: ~/.agents/skills/gantry
   --project <path>      Install at project level under <path>/.claude/skills
                         <path>/.codex/skills, and <path>/.agents/skills.
+  --agents-path <path>  Install generic .agents support under this agents
+                        directory, e.g. ~/.agents or /path/to/.agents.
 
 Agent selection:
   --claude              Force install for Claude Code
@@ -56,6 +59,11 @@ while [[ $# -gt 0 ]]; do
       PROJECT_PATH="$2"
       shift 2
       ;;
+    --agents-path)
+      [[ $# -lt 2 ]] && { echo "error: --agents-path requires a path"; exit 1; }
+      AGENTS_PATH="$2"
+      shift 2
+      ;;
     --claude) INSTALL_CLAUDE=yes; shift ;;
     --codex) INSTALL_CODEX=yes; shift ;;
     --agents) INSTALL_AGENTS=yes; shift ;;
@@ -66,6 +74,10 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown option: $1"; usage; exit 1 ;;
   esac
 done
+
+if [[ -n "$AGENTS_PATH" ]]; then
+  INSTALL_AGENTS=yes
+fi
 
 if [[ ! -d "$SKILL_SRC" ]]; then
   echo "error: skill source not found at $SKILL_SRC"
@@ -137,10 +149,16 @@ USER_HOME="$(resolve_user_home)"
 if [[ "$SCOPE" == "user" ]]; then
   CLAUDE_ROOTS=("$USER_HOME/.claude/skills")
   CODEX_ROOTS=("$USER_HOME/.codex/skills")
-  AGENTS_ROOTS=("$USER_HOME/.agents/skills")
 else
   CLAUDE_ROOTS=("$PROJECT_PATH/.claude/skills")
   CODEX_ROOTS=("$PROJECT_PATH/.codex/skills")
+fi
+
+if [[ -n "$AGENTS_PATH" ]]; then
+  AGENTS_ROOTS=("$AGENTS_PATH/skills")
+elif [[ "$SCOPE" == "user" ]]; then
+  AGENTS_ROOTS=("$USER_HOME/.agents/skills")
+else
   AGENTS_ROOTS=("$PROJECT_PATH/.agents/skills")
 fi
 

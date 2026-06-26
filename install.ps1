@@ -17,6 +17,10 @@
   and <path>\.agents\skills so teammates get gantry when they clone that repo.
   Omit for a user-level install.
 
+.PARAMETER AgentsPath
+  Install generic .agents support under this agents directory, e.g. $HOME\.agents
+  or C:\path\to\.agents.
+
 .PARAMETER Claude
   Force install for Claude Code.
 
@@ -47,6 +51,7 @@
 [CmdletBinding()]
 param(
   [string]$Project,
+  [string]$AgentsPath,
   [switch]$Claude,
   [switch]$Codex,
   [switch]$Agents,
@@ -73,11 +78,17 @@ if ($Project) {
   $scope = "project ($Project)"
   $claudeRoots = @((Join-Path $Project '.claude\skills'))
   $codexRoots  = @((Join-Path $Project '.codex\skills'))
-  $agentsRoots = @((Join-Path $Project '.agents\skills'))
 } else {
   $scope = 'user'
   $claudeRoots = @((Join-Path $UserHome '.claude\skills'))
   $codexRoots  = @((Join-Path $UserHome '.codex\skills'))
+}
+
+if ($AgentsPath) {
+  $agentsRoots = @((Join-Path $AgentsPath 'skills'))
+} elseif ($Project) {
+  $agentsRoots = @((Join-Path $Project '.agents\skills'))
+} else {
   $agentsRoots = @((Join-Path $UserHome '.agents\skills'))
 }
 
@@ -95,7 +106,7 @@ function Test-Agents {
 
 $installClaude = if ($Claude) { $true } elseif ($NoClaude) { $false } else { [bool](Test-Claude) }
 $installCodex  = if ($Codex)  { $true } elseif ($NoCodex)  { $false } else { [bool](Test-Codex) }
-$installAgents = if ($Agents) { $true } elseif ($NoAgents) { $false } else { [bool](Test-Agents) }
+$installAgents = if ($Agents -or $AgentsPath) { $true } elseif ($NoAgents) { $false } else { [bool](Test-Agents) }
 
 # --- Install helpers ------------------------------------------------------
 function Install-To {
