@@ -136,6 +136,8 @@ function revealFirstOpen() {
   for (let p = target.closest(".path.collapsed"); p; p = p.parentElement?.closest(".path.collapsed")) {
     p.classList.remove("collapsed");
   }
+  const history = target.closest("details.decision-history");
+  if (history) history.open = true;
   target.scrollIntoView({ behavior: "smooth", block: "center" });
   target.classList.add("gate-highlight");
 }
@@ -528,11 +530,34 @@ function renderReviewStep(step, number) {
     block.append(comments);
   }
 
-  // Gate items the AI surfaced against this step (ref/edge/feat/ripple) render
-  // inline beneath it — same per-step gate view annotation mode uses — so a
-  // rebuild/forward doc that carries both steps and items shows everything.
-  for (const item of stepItemIndex.get(step.id) ?? []) block.append(renderItem(item));
+  appendStepItems(block, step);
   return block;
+}
+
+// Keep unresolved work directly under the canonical step, where it demands
+// attention. Completed annotations remain in the document as the approval trail,
+// but collapse behind one disclosure so historical decisions do not compete with
+// the pseudocode that should be implemented now.
+function appendStepItems(block, step) {
+  const items = stepItemIndex.get(step.id) ?? [];
+  const open = items.filter((item) => effectiveStatus(item) === "open");
+  const resolved = items.filter((item) => effectiveStatus(item) !== "open");
+
+  for (const item of open) block.append(renderItem(item));
+  if (resolved.length === 0) return;
+
+  const history = document.createElement("details");
+  history.className = "decision-history";
+
+  const summary = document.createElement("summary");
+  summary.textContent = `Decision history (${resolved.length})`;
+  history.append(summary);
+
+  const body = document.createElement("div");
+  body.className = "decision-history-body";
+  for (const item of resolved) body.append(renderItem(item));
+  history.append(body);
+  block.append(history);
 }
 
 // Mirrors effectiveStatus for items: accept/reject win; otherwise a non-empty
@@ -857,10 +882,13 @@ function applyItemState(row, item) {
 }
 
 function effectiveStatus(item) {
-  if (item.status === "accept" || item.status === "reject") return item.status;
+  if (item.status === "accept" || item.status === "reject" || item.status === "edit") {
+    return item.status;
+  }
   if (item.status.startsWith("choice-")) return item.status;
-  // "open" or a bare "edit" flag: only resolved when there is an actual
-  // proposed edit (a comment). An edit flag with no proposal is still open.
+  // While the engineer is typing, a comment on an open item is a proposed edit.
+  // After AI normalization, status=edit is durable even when the final wording
+  // lives in the annotation text and no separate comment remains.
   return hasProposedEdit(item) ? "edit" : "open";
 }
 

@@ -390,6 +390,37 @@ textarea::placeholder {
   background: color-mix(in srgb, var(--yellow) 7%, transparent);
 }
 
+/* Completed decisions stay attached to their canonical step as provenance, but
+   collapse by default so the current design remains the dominant reading path. */
+.decision-history {
+  margin: 5px 0 8px 24px;
+  color: var(--muted);
+}
+
+.decision-history > summary {
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.decision-history > summary:hover {
+  color: var(--ink);
+}
+
+.decision-history-body {
+  margin-top: 5px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+
+.decision-history-body .gate-line {
+  margin-left: 0;
+  opacity: 0.82;
+}
+
 /* ── inline approve / reject controls ──────────────────────── */
 
 .decision {

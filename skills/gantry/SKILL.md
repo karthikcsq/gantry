@@ -53,7 +53,7 @@ You design in pseudocode, gantry surfaces what you missed, you approve, *then* i
 - **Continue** — `/gantry <slug>` when a doc already exists. Gantry drift-checks the doc against current source first, then you keep authoring.
 - **Rebuild** — `/gantry <slug> path/to/file.ts` (or a symbol) when source exists but no doc. You write pseudocode of what you *think* the code does; gantry flags the mismatches — those are your mental-model gaps.
 
-**The one rule:** no code is written while any `- [ ]` is unresolved in the doc. Clear the gate, then say "write the code."
+**The one rule:** no code is written until every decision is resolved, reflected in the current pseudocode, and a stabilization pass finds no new downstream decisions. Clear that gate, then say "write the code."
 
 **Choose your guidance:** `/gantry-mode guided`, `/gantry-mode collaborative`, or `/gantry-mode concise` sets the default for new tasks. Add the current slug to switch this task immediately, such as `/gantry-mode guided vendor-search`. Every level keeps the same approval gate.
 
@@ -66,7 +66,7 @@ You design in pseudocode, gantry surfaces what you missed, you approve, *then* i
 1. `/gantry` → "I'm building vendor search."
 2. Write rough pseudocode in the editor (or ask gantry to draft it).
 3. Say "ready" → gantry annotates edge cases and refs.
-4. Resolve each annotation.
+4. Resolve each annotation; gantry rewrites the affected steps and follows their ripples until the design stabilizes.
 5. Say "write the code" → gantry implements and snapshots the code into the doc.
 
 Run `/gantry` whenever you want to start. What would you like to build?
@@ -268,8 +268,17 @@ Forward mode is only allowed after the no-slug related-doc search has found no p
    - `**edge:**` — substantive edge cases the pseudocode didn't address.
    - `**feat:**` — useful or necessary feature additions the engineer did not specify but should consciously accept or reject.
    - `**ripple:**` — structural changes elsewhere in the codebase needed to make this work.
-6. **Iteration loop.** Engineer resolves annotations in-file or in chat (see [resolution](#resolution)). Every turn: run the diff script, reconcile against engineer code changes, surface uncertain triage in chat. Auto-revert resolved annotations whose context shifted.
-7. **Approval gate.** Code-writing is blocked while any `- [ ]` remains in the main doc. When zero unresolved remain, engineer can say "write the code" (or equivalent).
+6. **Resolution and stabilization loop.** Engineer resolves annotations in-file or in chat (see [resolution](#resolution)). After every resolution batch:
+   - normalize the completed annotations;
+   - materialize their outcomes into the affected pseudocode steps;
+   - run a targeted stabilization pass over those steps and their downstream dependencies;
+   - surface any newly implied substantive decisions, then repeat after those are resolved.
+   On every turn, also run the diff script, reconcile against engineer code changes, surface uncertain triage in chat, and auto-revert resolved annotations whose context shifted.
+7. **Approval gate.** Code-writing is blocked until all three conditions hold:
+   - zero unresolved items, AI steps, or forks remain;
+   - every accepted, edited, or chosen outcome is reflected in the canonical pseudocode;
+   - the latest stabilization pass added no new substantive decisions.
+   Only then tell the engineer the gate is clear and invite "write the code" (or equivalent).
 8. **Translate to body.** Mechanically translate the now-resolved pseudocode into the actual source files. Do not introduce design decisions that weren't surfaced and approved.
 9. **Snapshot.** Embed the as-written code into the main doc's `## Code` section, dated and pinned to the current commit. This is the historical record — it is *not* updated when source evolves.
 10. **If mid-translation a gap appears** (something approved pseudocode doesn't specify but the implementation needs): stop. Add a fresh `- [ ]` to the affected step describing the gap. Surface in chat. Wait for resolution. Then resume.
@@ -286,7 +295,7 @@ Forward mode is only allowed after the no-slug related-doc search has found no p
 
 Source for the slug exists but no `.gantry/<slug>.md`. Offer the engineer two sub-paths in chat:
 
-- **(a) Write-blind.** Engineer writes pseudocode of what they *think* the function does, without looking at the source. AI compares to actual source and surfaces mismatches as `- [ ] **mismatch:**` annotations. This is the diagnostic mode — it finds mental-model gaps.
+- **(a) Write-blind.** Engineer writes pseudocode of what they *think* the function does, without looking at the source. AI compares to actual source and surfaces mismatches as `- [ ] **mismatch:**` annotations. This is the diagnostic mode — it finds mental-model gaps. When a mismatch is accepted or edited, rewrite the owning step to the corrected mental model while preserving the completed mismatch beneath it as history.
 - **(b) AI-bootstrap.** AI reads the source and generates pseudocode as a starting point. Every generated step is `- [ ]` proposed. Engineer must resolve each — accept ("yes, this is what it should do"), edit ("the source has it wrong / unclear, here's what it should be"), or reject ("this exists but I don't know why"). This is the on-ramp for adopting gantry on an existing codebase.
 
 After rebuild's initial pass completes, the doc is live — continue mode applies on future invocations.
@@ -335,6 +344,20 @@ The engineer never types marker syntax. AI maintains markers on every turn.
 
 If AI is uncertain about intent (e.g., "yes but also do Y" — accept-with-augmentation or edit?), confirm once in chat before normalizing.
 
+### Materialize resolved decisions
+
+Normalization preserves what the engineer decided; materialization makes that decision the actual design. After normalizing a resolution batch, rewrite the affected pseudocode so a future reader can implement it without interpreting the annotations:
+
+- **Accept, edit, or choice:** incorporate the approved outcome into the owning step. Replace superseded wording rather than leaving contradictory instructions side by side.
+- **Accepted ripple or feature:** insert or split out a pseudocode step when the outcome adds distinct work elsewhere. Do not bury a structural addition inside an annotation.
+- **Reject:** leave the pseudocode behavior unchanged, but keep the completed annotation and rejection reason as the decision trail.
+- **AI given edit:** rewrite the given's text to the engineer's version, retain `status=edit`, and keep the comment as provenance.
+- **Picked fork:** fold the surviving path into the settled flow once its givens are resolved; rejected paths remain recorded as history but are not part of the canonical flow.
+
+The completed annotation stays immediately beneath the step that caused it. It is history, not the current instruction. In the browser editor, completed annotations may be collapsed by default so the canonical pseudocode remains fast to scan.
+
+Never declare the gate clear while an accepted annotation contradicts, refines, or adds behavior that is still absent from the pseudocode. A checked box is an approval record, not a substitute for updating the spec.
+
 ### AI-drafted pseudocode: givens and forks
 
 AI-drafted pseudocode is not yet the engineer's design, so it must be endorsed before annotation or code-writing. But endorsement must not become 13 identical "proposed step" gates — uniform ceremony trains the engineer to skim and rubber-stamp, which is the exact failure gantry exists to prevent. So the draft is split into two kinds of content (markup in [Givens and forks](#givens-and-forks-the-ai-draft-representation) above):
@@ -358,6 +381,19 @@ Resolution:
 When a path or fork is rejected, **you own keeping the surviving givens coherent.** Rejecting a branch collapses everything *under* it for free (containment). But givens *after* the fork that assumed the dropped feature (a merge step that referenced its output, a report that counted its results) are not underneath it — silently reconcile those to match the new reality and note that you did. The engineer decides forks; you keep the givens consistent. Do not ask them to clean up the ripple.
 
 The gate (`status=open` givens, `status=open` forks) blocks code-writing until cleared. Do not add `ref`/`edge`/`feat`/`ripple` annotations against unresolved givens or forks; first establish what the engineer actually endorses, then run the annotation pass on the settled pseudocode.
+
+## Stabilization pass (after every resolution batch)
+
+Resolution can create new design consequences. Gantry must follow those consequences to a fixed point instead of stopping after one annotation round.
+
+1. Materialize the newly resolved outcomes into the canonical pseudocode.
+2. Re-read the changed steps plus the symbols, call sites, contracts, and later steps that depend on them.
+3. Handle mechanical consequences silently: imports, obvious parameter plumbing, renumbering, and formatting do not become new gates.
+4. Surface only newly implied **substantive** decisions that pass the annotation bar: observable behavior, genuine ambiguity, useful scope expansion, or structural change.
+5. If new items were added, wait for the engineer to resolve them, materialize those outcomes, and run stabilization again.
+6. A pass that adds zero items marks the current design stable. Record that result in the sidecar reconciliation history.
+
+This is incremental ripple closure, not a full rescan. It follows the consequences of decisions that just changed; it does not regenerate unrelated annotations or reopen unchanged resolutions. There is no fixed number of rounds.
 
 ## Diff awareness (every turn)
 
@@ -383,18 +419,19 @@ The main doc is the design record. *Every* decision must appear there — regard
 - Engineer writes in file → already there.
 - Engineer types in chat → AI transcribes into the file.
 - Engineer changes source code → AI proposes a pseudocode update in the doc, anchored to the affected step. Engineer resolves; pseudocode is rewritten if accepted/edited, left alone if rejected (rejection means "that code change wasn't a design decision").
+- Engineer resolves an annotation or fork → AI rewrites the affected pseudocode and runs stabilization. The completed item remains beneath the canonical step as history.
 
-If a decision exists in the engineer's head or in the code but not in the doc, the workflow has failed.
+If a decision exists in the engineer's head or in the code but not in the doc, the workflow has failed. If it exists only in a completed annotation but not in the canonical pseudocode, the workflow is not finished.
 
 ## Targeted vs. rescan
 
-Default: **targeted updates**. When the engineer raises a specific pushback ("you missed X in step 3"), respond to that specific thing. Don't regenerate other annotations or invalidate other resolutions.
+Default: **targeted updates**. When the engineer raises a specific pushback ("you missed X in step 3"), respond to that specific thing. Don't regenerate other annotations or invalidate other resolutions. The mandatory stabilization pass is also targeted: it follows only the downstream consequences of the decisions that just changed.
 
 Engineer can request a **rescan** ("rescan everything" or similar). Then re-read the whole doc and source, regenerate all annotations from scratch. Prior resolutions stay where the context is unchanged; reset to `- [ ]` where it shifted.
 
 ## Code-writing rules
 
-When the engineer says "write the code" (or equivalent) and the gate is clear (zero `- [ ]`):
+When the engineer says "write the code" (or equivalent), first verify the full gate: zero unresolved items, every resolution materialized into canonical pseudocode, and a completed stabilization pass with no new items.
 
 - Translate mechanically. The approved pseudocode is the spec.
 - Mechanical consequences of accepted decisions (imports, simple parameter plumbing) are handled at this stage automatically — they were not separate ripples for a reason.

@@ -324,6 +324,31 @@ test("updates steps, decisions, choices, and comments", () => {
   assert.match(next, /comment: empty query should fail loudly/);
 });
 
+test("materializes a resolution into the canonical step without deleting its decision trail", () => {
+  const parsed = parseGantryMarkdown(validMarkdown);
+  const next = serializeGantryMarkdown(parsed, {
+    steps: [{ id: "step-1", text: "1. Read the normalized query from `request.nextUrl.searchParams`." }],
+    items: [{
+      id: "gty-ref-query",
+      status: "accept",
+      text: "use `request.nextUrl.searchParams`.",
+      comments: ["resolved into step 1"],
+    }],
+  });
+
+  const reparsed = parseGantryMarkdown(next);
+  assert.equal(
+    reparsed.steps[0].text,
+    "1. Read the normalized query from `request.nextUrl.searchParams`.",
+  );
+  assert.equal(reparsed.items[0].status, "accept");
+  assert.equal(reparsed.items[0].text, "use `request.nextUrl.searchParams`.");
+  assert.deepEqual(reparsed.items[0].comments, ["resolved into step 1"]);
+  assert.equal(lintGantryMarkdown(next, { gate: true }).errors.some(
+    (error) => error.code === "unresolved-gate" && error.line === reparsed.items[0].itemLine + 1,
+  ), false);
+});
+
 test("freeform drafting replaces the Pseudocode body verbatim", () => {
   const parsed = parseGantryMarkdown(emptyScaffold);
   const next = serializeGantryMarkdown(parsed, {
