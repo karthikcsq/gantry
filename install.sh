@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# gantry install — lands the gantry skill in supported coding agents.
+# gantry install — lands the gantry skills in supported coding agents.
 #
 # Currently supported:
-#   - Claude Code      (target: $TARGET_ROOT/.claude/skills/gantry)
-#   - Codex            (target: $TARGET_ROOT/.codex/skills/gantry)
-#   - Generic agents   (target: $TARGET_ROOT/.agents/skills/gantry)
+#   - Claude Code      (target: $TARGET_ROOT/.claude/skills/{gantry,gantry-mode})
+#   - Codex            (target: $TARGET_ROOT/.codex/skills/{gantry,gantry-mode})
+#   - Generic agents   (target: $TARGET_ROOT/.agents/skills/{gantry,gantry-mode})
 #
 # Default behavior: detect installed agents, install at user level via symlink.
 # Falls back to copy if symlinks are not permitted (e.g., Windows without
@@ -13,7 +13,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_SRC="$SCRIPT_DIR/skills/gantry"
+SKILLS_SRC="$SCRIPT_DIR/skills"
+SKILL_NAMES=(gantry gantry-mode)
 
 SCOPE="user"          # user | project
 PROJECT_PATH=""
@@ -28,9 +29,9 @@ Usage: ./install.sh [options]
 
 Scope:
   --user                Install at user level (default)
-                          Claude: ~/.claude/skills/gantry
-                          Codex:  ~/.codex/skills/gantry
-                          Generic agents: ~/.agents/skills/gantry
+                          Claude: ~/.claude/skills/{gantry,gantry-mode}
+                          Codex:  ~/.codex/skills/{gantry,gantry-mode}
+                          Generic agents: ~/.agents/skills/{gantry,gantry-mode}
   --project <path>      Install at project level under <path>/.claude/skills
                         <path>/.codex/skills, and <path>/.agents/skills.
   --agents-path <path>  Install generic .agents support under this agents
@@ -79,10 +80,12 @@ if [[ -n "$AGENTS_PATH" ]]; then
   INSTALL_AGENTS=yes
 fi
 
-if [[ ! -d "$SKILL_SRC" ]]; then
-  echo "error: skill source not found at $SKILL_SRC"
-  exit 1
-fi
+for skill_name in "${SKILL_NAMES[@]}"; do
+  if [[ ! -d "$SKILLS_SRC/$skill_name" ]]; then
+    echo "error: skill source not found at $SKILLS_SRC/$skill_name"
+    exit 1
+  fi
+done
 
 path_from_windows_env() {
   local win_path="$1"
@@ -186,22 +189,24 @@ fi
 install_to() {
   local target_root="$1"
   local agent_name="$2"
-  local target="$target_root/gantry"
+  local skill_name="$3"
+  local skill_src="$SKILLS_SRC/$skill_name"
+  local target="$target_root/$skill_name"
   local source_real
 
   mkdir -p "$target_root"
-  source_real="$(realpath "$SKILL_SRC")"
+  source_real="$(realpath "$skill_src")"
 
   if [[ -e "$target" || -L "$target" ]]; then
     if target_real="$(realpath "$target" 2>/dev/null)"; then
       if [[ "$target_real" == "$source_real" ]]; then
         if [[ "$target" =~ ^/mnt/[A-Za-z]/ ]] && command -v cmd.exe >/dev/null 2>&1; then
           if windows_target_has_payload "$target"; then
-            echo "  $agent_name: already linked $target -> $SKILL_SRC"
+            echo "  $agent_name ($skill_name): already linked $target -> $skill_src"
             return
           fi
         else
-          echo "  $agent_name: already linked $target -> $SKILL_SRC"
+          echo "  $agent_name ($skill_name): already linked $target -> $skill_src"
           return
         fi
       fi
@@ -212,11 +217,11 @@ install_to() {
   # Prefer symlink so future pulls of this repo update the installed skill.
   # Fall back to copy if the platform doesn't allow symlinks (Windows without
   # developer mode, restricted filesystems).
-  if link_skill "$target"; then
-    echo "  $agent_name: linked $target -> $SKILL_SRC"
+  if link_skill "$target" "$skill_src"; then
+    echo "  $agent_name ($skill_name): linked $target -> $skill_src"
   else
-    cp -r "$SKILL_SRC" "$target"
-    echo "  $agent_name: copied to $target"
+    cp -r "$skill_src" "$target"
+    echo "  $agent_name ($skill_name): copied to $target"
     echo "    (symlink not permitted; re-run install.sh after pulling updates)"
   fi
 }
@@ -234,6 +239,7 @@ remove_target() {
 
 link_skill() {
   local target="$1"
+  local skill_src="$2"
   # WSL symlinks/junctions into /mnt/c can be visible to WSL but unreadable to
   # Windows-native Claude/Codex. In that case prefer the copy fallback so the
   # complete skill payload is installed beside SKILL.md.
@@ -241,7 +247,7 @@ link_skill() {
     return 1
   fi
 
-  ln -s "$SKILL_SRC" "$target" 2>/dev/null
+  ln -s "$skill_src" "$target" 2>/dev/null
 }
 
 windows_target_has_payload() {
@@ -249,20 +255,22 @@ windows_target_has_payload() {
   local target_win
   target_win="$(windows_path_from_unix "$target")" || return 1
   if command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -Command 'if (Test-Path -LiteralPath (Join-Path $args[0] "scripts\gantry-editor.mjs")) { exit 0 } else { exit 1 }' "$target_win" >/dev/null 2>&1
+    powershell.exe -NoProfile -Command 'if (Test-Path -LiteralPath (Join-Path $args[0] "SKILL.md")) { exit 0 } else { exit 1 }' "$target_win" >/dev/null 2>&1
   else
-    cmd.exe /C if exist "$target_win\\scripts\\gantry-editor.mjs" exit /B 0 else exit /B 1 >/dev/null 2>&1
+    cmd.exe /C if exist "$target_win\\SKILL.md" exit /B 0 else exit /B 1 >/dev/null 2>&1
   fi
 }
 
 echo "gantry install"
-echo "  source: $SKILL_SRC"
+echo "  source: $SKILLS_SRC"
 echo "  scope:  $SCOPE${PROJECT_PATH:+ ($PROJECT_PATH)}"
 echo
 
 if [[ "$INSTALL_CLAUDE" == "yes" ]]; then
   for root in "${CLAUDE_ROOTS[@]}"; do
-    install_to "$root" "Claude Code"
+    for skill_name in "${SKILL_NAMES[@]}"; do
+      install_to "$root" "Claude Code" "$skill_name"
+    done
   done
 else
   echo "  Claude Code: skipped"
@@ -270,7 +278,9 @@ fi
 
 if [[ "$INSTALL_CODEX" == "yes" ]]; then
   for root in "${CODEX_ROOTS[@]}"; do
-    install_to "$root" "Codex"
+    for skill_name in "${SKILL_NAMES[@]}"; do
+      install_to "$root" "Codex" "$skill_name"
+    done
   done
 else
   echo "  Codex: skipped"
@@ -278,7 +288,9 @@ fi
 
 if [[ "$INSTALL_AGENTS" == "yes" ]]; then
   for root in "${AGENTS_ROOTS[@]}"; do
-    install_to "$root" "Generic agents"
+    for skill_name in "${SKILL_NAMES[@]}"; do
+      install_to "$root" "Generic agents" "$skill_name"
+    done
   done
 else
   echo "  Generic agents: skipped"

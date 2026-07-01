@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-  gantry install (Windows / PowerShell) — lands the gantry skill in supported coding agents.
+  gantry install (Windows / PowerShell) — lands the gantry skills in supported coding agents.
 
 .DESCRIPTION
   Windows-native counterpart to install.sh. Currently supported:
-    - Claude Code      (target: <root>\.claude\skills\gantry)
-    - Codex            (target: <root>\.codex\skills\gantry)
-    - Generic agents   (target: <root>\.agents\skills\gantry)
+    - Claude Code      (target: <root>\.claude\skills\gantry and gantry-mode)
+    - Codex            (target: <root>\.codex\skills\gantry and gantry-mode)
+    - Generic agents   (target: <root>\.agents\skills\gantry and gantry-mode)
 
   Default behavior: detect installed agents, install at user level. Prefers a
   directory junction (works without admin or developer mode), then a symlink,
@@ -63,13 +63,16 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$SkillSrc  = Join-Path $ScriptDir 'skills\gantry'
+$SkillsSrc = Join-Path $ScriptDir 'skills'
+$SkillNames = @('gantry', 'gantry-mode')
 
-if (-not (Test-Path -LiteralPath $SkillSrc)) {
-  Write-Error "skill source not found at $SkillSrc"
-  exit 1
+foreach ($skillName in $SkillNames) {
+  $source = Join-Path $SkillsSrc $skillName
+  if (-not (Test-Path -LiteralPath $source)) {
+    Write-Error "skill source not found at $source"
+    exit 1
+  }
 }
-$SkillSrc = (Resolve-Path -LiteralPath $SkillSrc).Path
 
 # --- Resolve scope and target roots --------------------------------------
 $UserHome = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
@@ -110,9 +113,10 @@ $installAgents = if ($Agents -or $AgentsPath) { $true } elseif ($NoAgents) { $fa
 
 # --- Install helpers ------------------------------------------------------
 function Install-To {
-  param([string]$TargetRoot, [string]$AgentName)
+  param([string]$TargetRoot, [string]$AgentName, [string]$SkillName)
 
-  $target = Join-Path $TargetRoot 'gantry'
+  $skillSrc = (Resolve-Path -LiteralPath (Join-Path $SkillsSrc $SkillName)).Path
+  $target = Join-Path $TargetRoot $SkillName
   New-Item -ItemType Directory -Force -Path $TargetRoot | Out-Null
 
   # If a link/junction already points at our source, leave it.
@@ -121,8 +125,8 @@ function Install-To {
     if ($item.LinkType -and $item.Target) {
       $existing = @($item.Target)[0]
       try { $existing = (Resolve-Path -LiteralPath $existing -ErrorAction Stop).Path } catch {}
-      if ($existing -eq $SkillSrc) {
-        Write-Host "  ${AgentName}: already linked $target -> $SkillSrc"
+      if ($existing -eq $skillSrc) {
+        Write-Host "  ${AgentName} (${SkillName}): already linked $target -> $skillSrc"
         return
       }
     }
@@ -138,21 +142,21 @@ function Install-To {
 
   # Prefer a junction (no admin / developer mode needed), then a symlink,
   # then a plain copy so future `git pull`s are picked up automatically.
-  if (Try-Link -Target $target -Kind 'Junction') {
-    Write-Host "  ${AgentName}: linked (junction) $target -> $SkillSrc"
-  } elseif (Try-Link -Target $target -Kind 'SymbolicLink') {
-    Write-Host "  ${AgentName}: linked (symlink) $target -> $SkillSrc"
+  if (Try-Link -Target $target -Source $skillSrc -Kind 'Junction') {
+    Write-Host "  ${AgentName} (${SkillName}): linked (junction) $target -> $skillSrc"
+  } elseif (Try-Link -Target $target -Source $skillSrc -Kind 'SymbolicLink') {
+    Write-Host "  ${AgentName} (${SkillName}): linked (symlink) $target -> $skillSrc"
   } else {
-    Copy-Item -LiteralPath $SkillSrc -Destination $target -Recurse -Force
-    Write-Host "  ${AgentName}: copied to $target"
+    Copy-Item -LiteralPath $skillSrc -Destination $target -Recurse -Force
+    Write-Host "  ${AgentName} (${SkillName}): copied to $target"
     Write-Host "    (link not permitted; re-run install.ps1 after pulling updates)"
   }
 }
 
 function Try-Link {
-  param([string]$Target, [string]$Kind)
+  param([string]$Target, [string]$Source, [string]$Kind)
   try {
-    New-Item -ItemType $Kind -Path $Target -Target $SkillSrc -ErrorAction Stop | Out-Null
+    New-Item -ItemType $Kind -Path $Target -Target $Source -ErrorAction Stop | Out-Null
     return $true
   } catch {
     return $false
@@ -161,24 +165,30 @@ function Try-Link {
 
 # --- Run ------------------------------------------------------------------
 Write-Host 'gantry install'
-Write-Host "  source: $SkillSrc"
+Write-Host "  source: $SkillsSrc"
 Write-Host "  scope:  $scope"
 Write-Host ''
 
 if ($installClaude) {
-  foreach ($root in $claudeRoots) { Install-To -TargetRoot $root -AgentName 'Claude Code' }
+  foreach ($root in $claudeRoots) {
+    foreach ($skillName in $SkillNames) { Install-To -TargetRoot $root -AgentName 'Claude Code' -SkillName $skillName }
+  }
 } else {
   Write-Host '  Claude Code: skipped'
 }
 
 if ($installCodex) {
-  foreach ($root in $codexRoots) { Install-To -TargetRoot $root -AgentName 'Codex' }
+  foreach ($root in $codexRoots) {
+    foreach ($skillName in $SkillNames) { Install-To -TargetRoot $root -AgentName 'Codex' -SkillName $skillName }
+  }
 } else {
   Write-Host '  Codex: skipped'
 }
 
 if ($installAgents) {
-  foreach ($root in $agentsRoots) { Install-To -TargetRoot $root -AgentName 'Generic agents' }
+  foreach ($root in $agentsRoots) {
+    foreach ($skillName in $SkillNames) { Install-To -TargetRoot $root -AgentName 'Generic agents' -SkillName $skillName }
+  }
 } else {
   Write-Host '  Generic agents: skipped'
 }

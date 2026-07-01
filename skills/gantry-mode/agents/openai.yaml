@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gantry Mode"
+  short_description: "Set Gantry guidance globally or per task"
+  default_prompt: "Use $gantry-mode to change my Gantry guidance level."

@@ -18,6 +18,25 @@ When invoked, gantry accepts up to two optional arguments: a slug and a source h
 - **draft request** — optional natural-language ask such as "draft pseudocode for me" or "start with an AI draft." Only honored when explicit; otherwise the engineer writes first.
 - **help** — reserved. If the only argument is `help`, `--help`, or `-h`, or the engineer asks how to use gantry (e.g. "how does gantry work?", "teach me gantry"), do **not** create a slug or route to a mode. Run [Help mode](#help-mode) instead.
 
+## Guidance level
+
+Gantry adapts its interaction style without changing its rigor. Resolve the guidance level at the start of every invocation:
+
+1. If the active `.gantry/<slug>.diff.md` sidecar has `guidance`, use it.
+2. Otherwise read `guidance` from `~/.gantry/config.json`.
+3. If neither contains a valid value, use `collaborative`. If the global config is malformed or is not a JSON object, mention it once and leave the file untouched.
+4. When scaffolding a new sidecar, or opening an existing sidecar without `guidance`, write the resolved value into its frontmatter. This snapshots the task's interaction style; later global changes affect new tasks, not existing ones.
+
+Valid levels:
+
+- **`guided`** — Explain unfamiliar terms and references in plain language, work through pseudocode in smaller coherent chunks, and state why each surfaced decision matters. Do not assume that familiarity with one tool implies general technical fluency.
+- **`collaborative`** — Use the balanced workflow described in this skill: enough context to make decisions confidently without turning each annotation into a lesson. This is the default.
+- **`concise`** — Assume fluency, preserve terse engineer-authored wording, and include only the context needed to resolve material decisions. Do not omit a substantive decision merely to stay brief.
+
+An engineer may change the active task's level at any time by asking Gantry directly; update the sidecar and apply the new style immediately. They may also run `/gantry-mode <level> <slug>` for the same immediate change. `/gantry-mode <level>` without a slug configures the user-level default for future tasks.
+
+**Invariant across every level:** keep the same annotation bar, active approval gate, completeness principle, and prohibition on unapproved design decisions. Guidance controls explanation and chunking—not safety, scope, or who approves.
+
 ## Help mode
 
 Triggered by `/gantry help` (or `--help`/`-h`, or a plain "how do I use gantry?"). Do not scaffold, do not infer a mode, do not touch the working tree. Print the guide below to chat verbatim (adjust only the invocation syntax to the host agent), then stop and ask what the engineer wants to build. This is a teaching response, not a workflow turn.
@@ -35,6 +54,8 @@ You design in pseudocode, gantry surfaces what you missed, you approve, *then* i
 - **Rebuild** — `/gantry <slug> path/to/file.ts` (or a symbol) when source exists but no doc. You write pseudocode of what you *think* the code does; gantry flags the mismatches — those are your mental-model gaps.
 
 **The one rule:** no code is written while any `- [ ]` is unresolved in the doc. Clear the gate, then say "write the code."
+
+**Choose your guidance:** `/gantry-mode guided`, `/gantry-mode collaborative`, or `/gantry-mode concise` sets the default for new tasks. Add the current slug to switch this task immediately, such as `/gantry-mode guided vendor-search`. Every level keeps the same approval gate.
 
 **Resolving what gantry surfaces** — in the browser editor (gantry opens it for you) or in chat:
 - *accept* — it's right, check it off.
@@ -209,6 +230,7 @@ Sidecar skeleton:
 ---
 baseline_commit: <git HEAD at invocation>
 last_diff_check: <timestamp>
+guidance: <guided | collaborative | concise>
 ---
 
 # Diff log
