@@ -6,8 +6,14 @@ const AUTHORS = new Set(["user", "ai"]);
 const STEP_STATUSES = new Set(["open", "accept", "reject", "edit"]);
 const PATH_STATUSES = new Set(["open", "pick", "reject"]);
 const ID_PATTERN = /^gty-[a-z0-9][a-z0-9-]*$/;
+const WORKFLOW_FIELDS = {
+  pseudocode: new Set(["pending", "approved"]),
+  annotations: new Set(["pending", "complete"]),
+  stabilization: new Set(["pending", "complete"]),
+  implementation: new Set(["pending", "authorized"]),
+};
 
-export { ITEM_TYPES, STATUSES, AUTHORS, STEP_STATUSES, PATH_STATUSES, ID_PATTERN };
+export { ITEM_TYPES, STATUSES, AUTHORS, STEP_STATUSES, PATH_STATUSES, ID_PATTERN, WORKFLOW_FIELDS };
 
 export function parseGantryMarkdown(markdown) {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
@@ -20,7 +26,13 @@ export function parseGantryMarkdown(markdown) {
   const blocks = [];
   const forkById = new Map();
   const pathById = new Map();
+  const workflowMarkers = [];
   let currentStep = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const workflow = parseWorkflowMarker(lines[index]);
+    if (workflow) workflowMarkers.push({ ...workflow, line: index });
+  }
 
   for (let index = pseudocode.start; index < pseudocode.end; index += 1) {
     const line = lines[index];
@@ -149,7 +161,18 @@ export function parseGantryMarkdown(markdown) {
     }
   }
 
-  return { markdown, lines, sections, steps, items, aiSteps, forks, blocks };
+  return {
+    markdown,
+    lines,
+    sections,
+    steps,
+    items,
+    aiSteps,
+    forks,
+    blocks,
+    workflow: workflowMarkers[0] ?? null,
+    workflowMarkers,
+  };
 }
 
 export function serializeGantryMarkdown(parsed, updates) {
@@ -224,6 +247,24 @@ export function lintGantryMarkdown(markdown, options = {}) {
   const parsed = parseGantryMarkdown(markdown);
   const errors = [];
   const seen = new Set();
+
+  if (parsed.workflowMarkers.length > 1) {
+    for (const marker of parsed.workflowMarkers.slice(1)) {
+      errors.push(issue("duplicate-workflow", marker.line, "Only one gantry workflow marker is allowed."));
+    }
+  }
+  if (parsed.workflow) {
+    for (const [field, allowed] of Object.entries(WORKFLOW_FIELDS)) {
+      const value = parsed.workflow[field];
+      if (!allowed.has(value)) {
+        errors.push(issue(
+          "invalid-workflow",
+          parsed.workflow.line,
+          `Workflow field "${field}" must be one of: ${[...allowed].join(", ")}.`,
+        ));
+      }
+    }
+  }
 
   // Reference integrity for nesting: a step/fork that names a parent path, or a
   // path that names its fork, must point at a real node — otherwise the parser
@@ -319,6 +360,30 @@ export function lintGantryMarkdown(markdown, options = {}) {
   }
 
   if (options.gate) {
+    if (!parsed.workflow) {
+      errors.push(issue(
+        "missing-workflow",
+        0,
+        "Code-writing gate requires a gantry workflow marker with explicit engineer review and implementation authorization.",
+      ));
+    } else {
+      const required = {
+        pseudocode: "approved",
+        annotations: "complete",
+        stabilization: "complete",
+        implementation: "authorized",
+      };
+      for (const [field, expected] of Object.entries(required)) {
+        if (parsed.workflow[field] !== expected) {
+          errors.push(issue(
+            "workflow-gate",
+            parsed.workflow.line,
+            `Workflow field "${field}" is "${parsed.workflow[field] ?? "missing"}"; code writing requires "${expected}".`,
+          ));
+        }
+      }
+    }
+
     // A step or fork left under a rejected path is moot — the engineer dropped that
     // branch, so its leftover marker (which serialization keeps as-is) must not trip
     // the gate. Resolve ancestry once and skip anything beneath a dropped path.
@@ -505,6 +570,16 @@ function parseMarker(line) {
   if (!match) return null;
   const attrs = { kind: match[1] };
   for (const [, key, value] of match[2].matchAll(/([a-z]+)=("[^"]*"|[^\s]+)/g)) {
+    attrs[key] = value.replace(/^"|"$/g, "");
+  }
+  return attrs;
+}
+
+function parseWorkflowMarker(line) {
+  const match = /^\s*<!--\s*gantry:workflow\s+(.+?)\s*-->\s*$/.exec(line ?? "");
+  if (!match) return null;
+  const attrs = {};
+  for (const [, key, value] of match[1].matchAll(/([a-z]+)=("[^"]*"|[^\s]+)/g)) {
     attrs[key] = value.replace(/^"|"$/g, "");
   }
   return attrs;

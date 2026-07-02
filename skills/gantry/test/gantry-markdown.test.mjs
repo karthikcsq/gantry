@@ -50,6 +50,8 @@ const draftMarkdown = `# clean-cut
 
 **Target:** tighten a talking-head video
 
+<!-- gantry:workflow pseudocode=pending annotations=pending stabilization=pending implementation=pending -->
+
 ## Pseudocode
 
 <!-- gantry:step id=gty-cc-args author=ai status=open -->
@@ -144,15 +146,61 @@ test("gate blocks on unresolved givens and forks, clears when resolved", () => {
   // accept/reject/edit all clear a given; picking a path clears the fork.
   const resolved = draftMarkdown
     .replace(/author=ai status=open/g, "author=ai status=accept")
-    .replace("gantry:fork id=gty-cc-takes status=open", "gantry:fork id=gty-cc-takes status=gty-cc-takes-a");
+    .replace("gantry:fork id=gty-cc-takes status=open", "gantry:fork id=gty-cc-takes status=gty-cc-takes-a")
+    .replace(
+      "pseudocode=pending annotations=pending stabilization=pending implementation=pending",
+      "pseudocode=approved annotations=complete stabilization=complete implementation=authorized",
+    );
   const clear = lintGantryMarkdown(resolved, { gate: true });
   assert.equal(clear.ok, true, JSON.stringify(clear.errors));
+});
+
+test("gate fails closed when AI writes plain pseudocode without engineer approval", () => {
+  const unreviewedAiSynthesis = `# retrieval-workbench
+
+**Target:** add a local retrieval workbench
+
+## Pseudocode
+
+1. Add a local HTTP server.
+2. Show retrieved evidence and the model response.
+
+## Code
+
+Pending translation.
+`;
+  const result = lintGantryMarkdown(unreviewedAiSynthesis, { gate: true });
+  assert.equal(result.ok, false);
+  assert(result.errors.some((error) => error.code === "missing-workflow"));
+});
+
+test("gate requires review, completed checks, and separate implementation authorization", () => {
+  const states = `# guarded
+
+**Target:** prove workflow state is enforced
+
+<!-- gantry:workflow pseudocode=approved annotations=complete stabilization=complete implementation=pending -->
+
+## Pseudocode
+
+Engineer-reviewed step.
+`;
+  const blocked = lintGantryMarkdown(states, { gate: true });
+  assert.equal(blocked.ok, false);
+  assert(blocked.errors.some(
+    (error) => error.code === "workflow-gate" && /implementation/.test(error.message),
+  ));
+
+  const authorized = states.replace("implementation=pending", "implementation=authorized");
+  assert.equal(lintGantryMarkdown(authorized, { gate: true }).ok, true);
 });
 
 test("gate ignores an open AI step left under a rejected path", () => {
   const rejectedPathMarkdown = `# rejected-path-gate
 
 **Target:** dropped branches must not trip the gate
+
+<!-- gantry:workflow pseudocode=approved annotations=complete stabilization=complete implementation=authorized -->
 
 ## Pseudocode
 
@@ -196,7 +244,11 @@ test("a fork comment proposes a path, persists, and resolves the gate (edit)", (
   assert.deepEqual(reparsed.forks[0].comments, ["neither — use scene-cut detection"]);
 
   // status=edit clears the fork half of the gate.
-  const gate = lintGantryMarkdown(next, { gate: true });
+  const authorized = next.replace(
+    "pseudocode=pending annotations=pending stabilization=pending implementation=pending",
+    "pseudocode=approved annotations=complete stabilization=complete implementation=authorized",
+  );
+  const gate = lintGantryMarkdown(authorized, { gate: true });
   assert.equal(gate.ok, true, JSON.stringify(gate.errors));
 });
 

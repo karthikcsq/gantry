@@ -8,7 +8,7 @@ gantry is a coding-agent skill package for Claude Code, Codex, and generic `.age
 - **Continue mode** — a `.gantry/<slug>.md` already exists. You're extending or revisiting an existing design; the AI drift-checks against the current code first, then you keep authoring.
 - **Rebuild mode** — the source exists but no doc. The same primitive in reverse: you write pseudocode of what you *think* a function does, the AI compares it to the real body, and the mismatches are your mental-model gaps.
 
-The artifact (`.gantry/<slug>.md`) is the source of truth: what was decided, what edge cases were surfaced, what was accepted/edited/rejected and why, and the code as it was written at gantry-time.
+The artifact (`.gantry/<slug>.md`) is the source of truth: what was decided, what edge cases were surfaced, what was accepted/edited/rejected and why, and the code as it was written at gantry-time. The code-writing gate fails closed until the engineer has reviewed the current pseudocode and separately authorized implementation; a passing format check never counts as approval.
 
 ---
 

@@ -9,6 +9,17 @@ Gantry is an authorship discipline. The engineer stays in the design loop while 
 
 The artifact (`.gantry/<slug>.md`) is the source of truth. Six months from now, an engineer reading the doc must see: what was decided, what edge cases were surfaced, what was accepted/edited/rejected and why, and the code as it was written at gantry-time. This is the entire point of the workflow.
 
+## Non-negotiable interaction boundary
+
+Invoking Gantry—whether the engineer requested it or the agent chose it proactively—never grants permission to implement. Gantry must visibly pause for engineer review.
+
+- A feature request, acceptance criteria, or follow-up clarification is **input to drafting**, not engineer-authored pseudocode. Any pseudocode wording synthesized, expanded, reordered, or invented by AI is AI-authored and must use `author=ai status=open`.
+- Plain unmarked pseudocode is `author=user` only when the engineer actually wrote those steps as pseudocode in chat or in the editor. Never relabel an AI synthesis as user-authored because it was derived from the engineer's request.
+- Tool output is not human approval. A successful lint, a clear structural gate, a saved file, silence, or the agent's own assessment can never approve pseudocode or authorize implementation.
+- The agent may set `pseudocode=approved` only after the engineer reviews the current pseudocode and explicitly endorses it. The agent may set `implementation=authorized` only after the design is stable, the agent has paused and invited implementation, and the engineer then explicitly says to write/implement the current design.
+- Approval cannot be prospective. “Build this,” “make this,” or permission given before the engineer sees the current Gantry design does not authorize the later code-writing phase.
+- After drafting or annotating, **STOP and yield the turn**. Do not continue through review, approval, and implementation in one agent turn.
+
 ## Invocation
 
 When invoked, gantry accepts up to two optional arguments: a slug and a source hint. Exact invocation syntax depends on the host agent (e.g., `/gantry <slug>` in Claude Code; `/skills gantry <slug>` or `$gantry <slug>` in Codex).
@@ -215,6 +226,8 @@ Main doc skeleton:
 
 **Target:** <one-line description>
 
+<!-- gantry:workflow pseudocode=pending annotations=pending stabilization=pending implementation=pending -->
+
 ## Pseudocode
 
 <empty — engineer writes here>
@@ -256,13 +269,14 @@ Forward mode is only allowed after the no-slug related-doc search has found no p
 2. **Scaffold.** Create main doc + sidecar. Record baseline.
 3. **Draft pseudocode.** Choose the drafting path from the engineer's explicit intent:
    - **Engineer-first (default):** A freshly scaffolded doc has no AI items, so the editor shows a single freeform pseudocode field — the engineer writes loosely and saves. Fallback: chat — if the engineer types pseudocode into chat, transcribe it into the main doc verbatim (no rewording).
-   - **AI-draft (explicit request only):** Claude/Codex reads the target context and writes an initial pseudocode draft into `## Pseudocode` as **givens and forks** (see [AI-drafted pseudocode: givens and forks](#ai-drafted-pseudocode-givens-and-forks)), because AI-authored pseudocode is not yet the engineer's design. Settled lines are givens the engineer approves; genuine decisions are forks the engineer resolves. Both must be cleared before annotation or code-writing.
+   - **AI-draft (explicit request only):** Claude/Codex reads the target context and writes an initial pseudocode draft into `## Pseudocode` as **givens and forks** (see [AI-drafted pseudocode: givens and forks](#ai-drafted-pseudocode-givens-and-forks)), because AI-authored pseudocode is not yet the engineer's design. A request to "make/build/add" a feature is not a request to treat AI-generated pseudocode as engineer-authored; all synthesized steps remain `author=ai status=open`. Settled lines are givens the engineer approves; genuine decisions are forks the engineer resolves. Both must be cleared before annotation or code-writing.
    Then launch the browser editor as the primary drafting/resolution surface — run it in the background so it doesn't block the conversation:
    ```bash
    node <absolute-path-to>/gantry-editor.mjs serve --slug <slug> --root <project-root>
    ```
    This opens the editor in the engineer's browser automatically. In AI-draft mode, launch it after populating the draft so the engineer resolves the proposal in the same approval UI.
-4. **Engineer signals "ready"** (or similar). Now AI annotates.
+   **STOP after presenting the draft/editor.** Yield the turn so the engineer can inspect it. Do not annotate, clear workflow state, or implement in the drafting turn.
+4. **Engineer reviews the current pseudocode and signals "ready"** (or similar). Set `pseudocode=approved`. Now AI annotates. A prior request to build the feature is not this approval.
 5. **Annotate inline.** Walk the pseudocode step by step. Under each step that needs it, add `- [ ]` annotations of four types (rules in [annotation bar](#annotation-bar) below):
    - `**ref:**` — verify symbols and resolve ambiguity for references the engineer used.
    - `**edge:**` — substantive edge cases the pseudocode didn't address.
@@ -278,10 +292,13 @@ Forward mode is only allowed after the no-slug related-doc search has found no p
    - zero unresolved items, AI steps, or forks remain;
    - every accepted, edited, or chosen outcome is reflected in the canonical pseudocode;
    - the latest stabilization pass added no new substantive decisions.
-   Only then tell the engineer the gate is clear and invite "write the code" (or equivalent).
-8. **Translate to body.** Mechanically translate the now-resolved pseudocode into the actual source files. Do not introduce design decisions that weren't surfaced and approved.
-9. **Snapshot.** Embed the as-written code into the main doc's `## Code` section, dated and pinned to the current commit. This is the historical record — it is *not* updated when source evolves.
-10. **If mid-translation a gap appears** (something approved pseudocode doesn't specify but the implementation needs): stop. Add a fresh `- [ ]` to the affected step describing the gap. Surface in chat. Wait for resolution. Then resume.
+   Record the completed annotation and stabilization phases in the workflow marker:
+   `pseudocode=approved annotations=complete stabilization=complete implementation=pending`.
+   Only then tell the engineer the design gate is clear, invite "write the code" (or equivalent), and **STOP**. A successful `lint --gate` is not possible yet and is not a substitute for this pause.
+8. **Receive explicit implementation authorization.** Only after the engineer responds to the stable current design with "write the code" (or equivalent), set `implementation=authorized` and run `lint --gate`. If it passes, translate the pseudocode into source. If the engineer has not sent that separate authorization, do not edit source files.
+9. **Translate to body.** Mechanically translate the now-resolved pseudocode into the actual source files. Do not introduce design decisions that weren't surfaced and approved.
+10. **Snapshot.** Embed the as-written code into the main doc's `## Code` section, dated and pinned to the current commit. This is the historical record — it is *not* updated when source evolves.
+11. **If mid-translation a gap appears** (something approved pseudocode doesn't specify but the implementation needs): stop. Reset `annotations=pending stabilization=pending implementation=pending`, add a fresh `- [ ]` to the affected step describing the gap, surface it in chat, and wait for resolution. Resume only after stabilization and a fresh implementation authorization.
 
 ## The flow (continue mode)
 
@@ -431,7 +448,19 @@ Engineer can request a **rescan** ("rescan everything" or similar). Then re-read
 
 ## Code-writing rules
 
-When the engineer says "write the code" (or equivalent), first verify the full gate: zero unresolved items, every resolution materialized into canonical pseudocode, and a completed stabilization pass with no new items.
+When the engineer says "write the code" (or equivalent) in response to the stable current design, set `implementation=authorized`, then verify the full gate with `lint --gate`: explicit pseudocode approval, completed annotation and stabilization passes, implementation authorization, zero unresolved items, and every resolution materialized into canonical pseudocode.
+
+The workflow marker is fail-closed:
+
+```markdown
+<!-- gantry:workflow pseudocode=pending annotations=pending stabilization=pending implementation=pending -->
+```
+
+- Set `pseudocode=approved` only from the engineer's explicit review of the current pseudocode.
+- Set `annotations=complete stabilization=complete` only after those passes actually run.
+- Set `implementation=authorized` only from a separate engineer message authorizing the stable current design.
+- Any substantive pseudocode change resets downstream fields to `pending`; any new annotation resets `annotations`, `stabilization`, and `implementation`; any new stabilization finding resets `stabilization` and `implementation`.
+- Never write these approvals based on tool output or the agent's own judgment.
 
 - Translate mechanically. The approved pseudocode is the spec.
 - Mechanical consequences of accepted decisions (imports, simple parameter plumbing) are handled at this stage automatically — they were not separate ripples for a reason.
