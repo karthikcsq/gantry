@@ -170,6 +170,16 @@ Step 0 — normalize source: probe rotation; bake if non-zero, else copy.
   - comment: (optional) a proposed edit lives here, exactly like an item comment
 ```
 
+A given may own indented pseudocode sub-bullets. Use this when one conceptual step has a small internal list, such as supported modes or ordered sub-actions. Keep those sub-bullets inside the same `gantry:step`; do not explode them into fake top-level steps just to satisfy the editor.
+
+```markdown
+<!-- gantry:step id=gty-output-rag-modes author=ai status=open -->
+Support three output-RAG flow modes:
+  - `tool_output_only`: retrieve with observed tool/output text, then run the final pass with that memory.
+  - `model_output_only`: run a first pass, retrieve with that response text, then run the final pass.
+  - `tool_then_model_output`: retrieve with tool/output text, run an intermediate pass, retrieve again with that response, then run the final pass.
+```
+
 - `author` is `ai` (drafted by AI, must be resolved) or `user` (the engineer's own line, implicitly accepted — usually a plain pseudocode line with no marker at all, rendered with a static approved mark).
 - `status` is `open` | `accept` | `reject` | `edit` — identical to a decision item. Only `open` givens block the gate; a non-empty comment makes a given an `edit`.
 
@@ -192,7 +202,7 @@ Slide an n-gram window over the transcript; score adjacent spans for similarity.
 Cut the earlier span wherever the score clears the threshold.
 ```
 
-Structure is driven entirely by the `id`/`fork`/`path` attributes, not by indentation — a path belongs to the fork named in its `fork=` attribute, and a given belongs to the path named in its `path=` attribute (top-level givens omit `path=`). Indentation in the file is cosmetic.
+Fork/path structure is driven entirely by the `id`/`fork`/`path` attributes, not by indentation: a path belongs to the fork named in its `fork=` attribute, and a given belongs to the path named in its `path=` attribute (top-level givens omit `path=`). Indentation inside a step is still meaningful pseudocode text: indented bullets are rendered and saved as part of the owning step body.
 
 ## State inference (first thing the skill does)
 
@@ -387,7 +397,7 @@ For non-choice items resolved in chat, the same rule applies: the status badge r
 
 ### Materialize resolved decisions
 
-Normalization preserves what the engineer decided; materialization makes that decision the actual design. After normalizing a resolution batch, every decision must land in one of two places: the owning pseudocode if it changes the current design, or a completed decision-history bullet if it records why an alternative was rejected, replaced, or left out. A decision that exists only in chat, only in an unchecked/open annotation, or only as "approved in chat" is missing from the Gantry doc.
+Normalization preserves what the engineer decided; materialization makes that decision the actual design. After normalizing a resolution batch, every decision must land in one of two places: the owning pseudocode if it changes the current design, or a completed decision-history bullet attached to the related pseudocode step if it records why an alternative was rejected, replaced, or left out. A decision that exists only in chat, only in an unchecked/open annotation, only as "approved in chat", or only in a detached bottom section is missing from the Gantry doc.
 
 - **Accept, edit, or choice:** incorporate the approved outcome into the owning step when it changes the current behavior. Replace superseded wording rather than leaving contradictory instructions side by side.
 - **Choice answer outside the listed options:** use `status=edit`, rewrite the item text to the engineer's actual decision, preserve the original A/B/C options under it, and materialize the edited behavior into pseudocode if it is current design.
@@ -396,7 +406,21 @@ Normalization preserves what the engineer decided; materialization makes that de
 - **AI given edit:** rewrite the given's text to the engineer's version, retain `status=edit`, and keep the comment as provenance.
 - **Picked fork:** fold the surviving path into the settled flow once its givens are resolved; rejected paths remain recorded as history but are not part of the canonical flow.
 
-The completed annotation stays immediately beneath the step that caused it. It is history, not the current instruction. In the browser editor, completed annotations may be collapsed by default so the canonical pseudocode remains fast to scan.
+The completed annotation stays immediately beneath the step that caused it, even after the step text is rewritten. If materialization splits one step into several steps, move each completed decision under the new step it explains. If materialization merges steps, carry the relevant histories into the merged step. Do not collect resolved decisions at the bottom of `## Pseudocode`; a bottom holding area is allowed only temporarily while no owning step exists, and the next normalization pass must either attach each item to a related step or ask the engineer where it belongs.
+
+Example:
+
+```markdown
+3. Record first-pass response text, response id, resolved model, and both retrieval queries in the trace. Do not record token usage.
+<!-- gantry:item id=gty-trace-recording type=edge status=edit mode=choice -->
+- [x] **edge:** [edit] Record the first-pass response and both retrieval queries, but omit token usage from the trace.
+  - A: record first-pass text, response id, resolved model, usage, and both retrieval queries
+  - B: record only the retrieval query
+  - C: do not record the first pass separately
+  - comment: resolved in chat: custom trace payload, not A/B/C
+```
+
+That completed item is history, not the current instruction. In the browser editor, completed annotations may be collapsed by default so the canonical pseudocode remains fast to scan.
 
 Never declare the gate clear while an accepted annotation contradicts, refines, or adds behavior that is still absent from the pseudocode. A checked box is an approval record, not a substitute for updating the spec.
 
@@ -462,7 +486,7 @@ The main doc is the design record. *Every* decision must appear there — regard
 - Engineer types in chat → AI transcribes into the file.
 - Engineer resolves an annotation in chat → AI rewrites the exact annotation in the file, including marker status, checkbox state, status badge, chosen option or resolved text, and any provenance comment. Chat-only resolution does not satisfy completeness.
 - Engineer changes source code → AI proposes a pseudocode update in the doc, anchored to the affected step. Engineer resolves; pseudocode is rewritten if accepted/edited, left alone if rejected (rejection means "that code change wasn't a design decision").
-- Engineer resolves an annotation or fork → AI rewrites the affected pseudocode and runs stabilization. The completed item remains beneath the canonical step as history.
+- Engineer resolves an annotation or fork → AI rewrites the affected pseudocode and runs stabilization. The completed item remains beneath the related canonical step as history, including after the step is rewritten, split, or merged.
 
 If a decision exists in the engineer's head or in the code but not in the doc, the workflow has failed. If it exists only in a completed annotation but not in the canonical pseudocode, the workflow is not finished.
 

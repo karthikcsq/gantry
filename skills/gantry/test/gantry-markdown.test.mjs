@@ -427,6 +427,65 @@ test("a saved freeform body re-parses into anchorable steps", () => {
   assert.equal(reparsed.steps[1].text, "Search vendors by name.");
 });
 
+test("indented pseudocode bullets belong to the preceding user step", () => {
+  const md = `# nested-pseudocode
+
+## Pseudocode
+
+Support three output-RAG flow modes:
+  - \`tool_output_only\`: retrieve with observed tool output.
+  - \`model_output_only\`: retrieve with first-pass model output.
+Then record the selected mode in the trace.
+`;
+  const parsed = parseGantryMarkdown(md);
+
+  assert.equal(parsed.steps.length, 2);
+  assert.equal(parsed.blocks.length, 2);
+  assert.equal(
+    parsed.steps[0].text,
+    "Support three output-RAG flow modes:\n" +
+      "  - `tool_output_only`: retrieve with observed tool output.\n" +
+      "  - `model_output_only`: retrieve with first-pass model output.",
+  );
+  assert.equal(serializeGantryMarkdown(parsed, {}), md);
+
+  const next = serializeGantryMarkdown(parsed, {
+    steps: [{
+      id: parsed.steps[0].id,
+      text:
+        "Support three output-RAG flow modes:\n" +
+        "  - `tool_output_only`: retrieve with observed tool output.\n" +
+        "  - `model_output_only`: retrieve with first-pass model output.\n" +
+        "  - `tool_then_model_output`: retrieve twice.",
+    }],
+  });
+  assert.match(next, /  - `tool_then_model_output`: retrieve twice\.\nThen record/);
+});
+
+test("indented pseudocode bullets belong to the preceding AI step", () => {
+  const md = `# ai-nested-pseudocode
+
+## Pseudocode
+
+<!-- gantry:step id=gty-output-rag-modes author=ai status=open -->
+Support three output-RAG flow modes:
+  - \`tool_output_only\`: retrieve with observed tool output.
+  - \`model_output_only\`: retrieve with first-pass model output.
+  - comment: make sure mode names stay literal
+`;
+  const parsed = parseGantryMarkdown(md);
+
+  assert.equal(parsed.aiSteps.length, 1);
+  assert.equal(
+    parsed.aiSteps[0].text,
+    "Support three output-RAG flow modes:\n" +
+      "  - `tool_output_only`: retrieve with observed tool output.\n" +
+      "  - `model_output_only`: retrieve with first-pass model output.",
+  );
+  assert.deepEqual(parsed.aiSteps[0].comments, ["make sure mode names stay literal"]);
+  assert.equal(serializeGantryMarkdown(parsed, {}), md);
+});
+
 test("freeform path refuses to overwrite an annotated doc", () => {
   const parsed = parseGantryMarkdown(validMarkdown);
   assert.throws(

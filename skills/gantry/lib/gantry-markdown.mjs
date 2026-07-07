@@ -59,11 +59,13 @@ export function parseGantryMarkdown(markdown) {
     if (marker?.kind === "step") {
       const textLine = index + 1;
       const comments = [];
+      const textLines = [linesSafe(lines, textLine)];
       let endLine = textLine;
       for (let i = textLine + 1; i < pseudocode.end; i += 1) {
         const sub = linesSafe(lines, i);
-        if (!sub.trim() || parseMarker(sub) || isItemLine(sub) || isEditableStepLine(sub)) break;
+        if (!sub.trim() || parseMarker(sub) || isItemLine(sub) || isTopLevelEditableStepLine(sub)) break;
         if (/^\s*- comment:\s*/.test(sub)) comments.push(sub.replace(/^\s*- comment:\s*/, ""));
+        else if (isPseudocodeContinuationLine(sub)) textLines.push(sub);
         else if (/^\s{2,}.+/.test(sub)) comments.push(sub.trim());
         endLine = i;
       }
@@ -73,7 +75,7 @@ export function parseGantryMarkdown(markdown) {
         markerLine: index,
         line: textLine,
         endLine,
-        text: linesSafe(lines, textLine),
+        text: textLines.join("\n"),
         // Preserve the raw author/status so an invalid marker surfaces as a lint
         // error instead of being silently coerced (items and forks do the same).
         author: marker.author ?? "ai",
@@ -85,7 +87,7 @@ export function parseGantryMarkdown(markdown) {
       const parentPath = step.pathId ? pathById.get(step.pathId) : null;
       if (parentPath) parentPath.children.push(step);
       else blocks.push(step);
-      currentStep = { id: step.id, line: textLine, text: step.text };
+      currentStep = step;
       index = endLine;
       continue;
     }
@@ -154,10 +156,24 @@ export function parseGantryMarkdown(markdown) {
       continue;
     }
 
-    if (isEditableStepLine(line)) {
-      currentStep = { id: `step-${steps.length + 1}`, line: index, text: line };
+    if (isPseudocodeContinuationLine(line) && currentStep) {
+      currentStep.text = `${currentStep.text}\n${line}`;
+      currentStep.endLine = index;
+      continue;
+    }
+
+    if (isTopLevelEditableStepLine(line)) {
+      currentStep = {
+        kind: "step",
+        id: `step-${steps.length + 1}`,
+        line: index,
+        endLine: index,
+        text: line,
+        author: "user",
+        status: "accept",
+      };
       steps.push(currentStep);
-      blocks.push({ kind: "step", id: currentStep.id, line: index, text: line, author: "user", status: "accept" });
+      blocks.push(currentStep);
     }
   }
 
@@ -203,16 +219,16 @@ export function serializeGantryMarkdown(parsed, updates) {
   const pathUpdates = new Map((updates.paths ?? []).map((path) => [path.id, path]));
 
   // Plain (user) step text edits are single-line in place — no line shift.
+  const edits = [];
   for (const step of parsed.steps) {
     const update = stepUpdates.get(step.id);
     if (update && typeof update.text === "string") {
-      lines[step.line] = update.text;
+      edits.push({ start: step.line, end: step.endLine ?? step.line, lines: stepTextLines(update.text) });
     }
   }
 
   // Every marked construct is a marker + content span. Collect the changed ones,
   // splice from the bottom up so earlier line indices stay valid.
-  const edits = [];
   for (const item of parsed.items) {
     if (!itemUpdates.has(item.id)) continue;
     const next = { ...item, ...itemUpdates.get(item.id) };
@@ -530,7 +546,7 @@ function renderAiStep(step) {
   const pathAttr = step.pathId ? ` path=${step.pathId}` : "";
   const out = [
     `<!-- gantry:step id=${step.id} author=${author} status=${status}${pathAttr} -->`,
-    step.text ?? "",
+    ...stepTextLines(step.text ?? ""),
   ];
   for (const comment of step.comments ?? []) {
     if (comment.trim()) out.push(`  - comment: ${comment.trim()}`);
@@ -597,6 +613,19 @@ function isEditableStepLine(line) {
   if (/^\s*- (comment|[ABC]):/.test(line)) return false;
   if (/^#{1,6}\s/.test(line)) return false;
   return true;
+}
+
+function isTopLevelEditableStepLine(line) {
+  return isEditableStepLine(line) && !/^\s+/.test(line ?? "");
+}
+
+function isPseudocodeContinuationLine(line) {
+  if (!isEditableStepLine(line)) return false;
+  return /^\s+(?:[-*+]\s+|(?:[0-9]+|[a-z]+|[ivxlcdm]+)[.)]\s+)/i.test(line);
+}
+
+function stepTextLines(text) {
+  return String(text ?? "").replace(/\r\n/g, "\n").split("\n");
 }
 
 // Strip a leading `fork:` / `path:` label (with optional bold/list decoration)
