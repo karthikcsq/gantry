@@ -137,8 +137,9 @@ Editable AI items live under `## Pseudocode`, immediately after the pseudocode s
 1. Read the query from the request.
 <!-- gantry:item id=gty-ref-query type=ref status=open mode=decision -->
 - [ ] **ref:** which existing helper already parses this route's request?
-  - comment: confirm route shape
 ```
+
+An item you are surfacing for the engineer to decide has **no `- comment:` line** — see [Presenting is not resolving](#presenting-is-not-resolving). A comment appears only after the engineer resolves the item.
 
 Choice items use `mode=choice` and options A/B/C:
 
@@ -156,18 +157,25 @@ Valid item types are `ref`, `edge`, `feat`, `ripple`, `update`, and `mismatch`. 
 
 **When a question has distinct alternatives, write them out as a choice item.** Spell each alternative as an option (A, B, C) so the engineer answers by picking one, not by typing a comment. A question phrased "should it be X or Y?" is a two-option choice item, not a `mode=decision` item — the same goes for a fork, where each path is a named alternative. Reserve `mode=decision` (free-text comment) for genuinely open-ended questions that have no enumerable options. For example, "Should login show a retry error, or recreate the missing auth identity before sending OTP?" is a choice: `A: show a retry error` / `B: recreate the identity, then send OTP`.
 
+### Presenting is not resolving
+
+Surfacing an item, choice, given, or fork **never** carries your own comment, edit, or status. Leave everything you present unresolved: `status=open` (or `mode=choice` with no chosen option), the checkbox unchecked, and **no `- comment:` line**.
+
+This is a hard mechanical constraint, not a style preference. The editor derives status from comment presence: a non-empty comment on any open item, given, or fork resolves it to `edit` and collapses it into decision history (that's how the UI works — see `app.js` `effectiveStatus`/`hasProposedEdit`). So an AI-written comment silently marks the decision "done" and hides it before the engineer has touched it — the exact rubber-stamp collapse gantry exists to prevent. A comment is an engineer resolution record; you write one only after they decide, to capture what they chose (see [Resolution](#resolution)).
+
+**Put your recommendation, rationale, or default at the end of the item's content — never in an option's wording and never in a comment.** Keep each option a clean, neutral statement of that alternative; append your steer as a trailing sentence on the item/question line itself. For the empty-query choice above, the options stay `A: return all vendors` / `B: return no vendors` / `C: throw validation error`, and the question line ends with `default: B — matches the empty-result contract callers already expect`. When you also raise these as a chat question (e.g. AskUserQuestion), the same holds: the recommendation trails the content, the options stay neutral, and the doc item stays open and comment-free until the engineer answers.
+
 Annotation items are for the **annotation pass** (after the engineer's design is endorsed). AI-drafted pseudocode uses a different, lighter representation — see [AI-drafted pseudocode: givens and forks](#ai-drafted-pseudocode-givens-and-forks).
 
 ### Givens and forks (the AI-draft representation)
 
 When AI drafts pseudocode, it does **not** mark every line as a "proposed step." It classifies each line into one of two kinds:
 
-A **given** is settled pseudocode — a line with a clear default and no real alternative. It carries provenance (`author`) and resolves with the **same vocabulary as an annotation item** — accept, reject, or edit — never "proposed:" prose. The text is on the line after the marker, with optional `- comment:` lines for a proposed edit:
+A **given** is settled pseudocode — a line with a clear default and no real alternative. It carries provenance (`author`) and resolves with the **same vocabulary as an annotation item** — accept, reject, or edit — never "proposed:" prose. When you draft a given, it is `status=open` with the text on the line after the marker and **no comment** ([Presenting is not resolving](#presenting-is-not-resolving)). A `- comment:` line is what the *engineer* adds to propose an edit; because the editor reads any comment as an edit, a given that carries one is already resolved (`status=edit`), not open:
 
 ```markdown
 <!-- gantry:step id=gty-cc-normalize author=ai status=open -->
 Step 0 — normalize source: probe rotation; bake if non-zero, else copy.
-  - comment: (optional) a proposed edit lives here, exactly like an item comment
 ```
 
 A given may own indented pseudocode sub-bullets. Use this when one conceptual step has a small internal list, such as supported modes or ordered sub-actions. Keep those sub-bullets inside the same `gantry:step`; do not explode them into fake top-level steps just to satisfy the editor.
