@@ -349,7 +349,7 @@ The engineer never types marker syntax. AI maintains markers on every turn.
     — yes, parameterize with default 20, clamped to max 100.
   ```
 
-**Chat resolution** works in parallel: "approve 2.1, 4.1. reject 3.1 — validated upstream. edit 5.1: parameterize with default 20." AI applies the resolutions to the file.
+**Chat resolution** works in parallel: "approve 2.1, 4.1. reject 3.1 — validated upstream. edit 5.1: parameterize with default 20." AI applies the resolutions to the file. A chat answer is not just a comment: update the marker status, checkbox line, badge, and owning pseudocode or decision-history bullet so the browser editor can be understood without the chat transcript.
 
 **AI normalizes after each turn.** Reads the resolved annotations, infers intent from prose (accept if just `[x]`; reject if prose contradicts; edit if prose is a refinement), and rewrites each into a canonical resolved form with a type badge:
 
@@ -361,11 +361,36 @@ The engineer never types marker syntax. AI maintains markers on every turn.
 
 If AI is uncertain about intent (e.g., "yes but also do Y" — accept-with-augmentation or edit?), confirm once in chat before normalizing.
 
+For choice items resolved in chat, persist the actual decision explicitly. Do not leave the item as `status=open` or as a vague `comment: approved in chat`; that makes the decision history unreadable. If the engineer picks one of the listed options, the marker and checkbox badge carry the chosen option, and the item text states the selected behavior:
+
+```markdown
+<!-- gantry:item id=gty-trace-recording type=edge status=choice-a mode=choice -->
+- [x] **edge:** [choice-a] Record first-pass text, response id, resolved model, usage, and both retrieval queries in the trace.
+  - A: record first-pass text, response id, resolved model, usage, and both retrieval queries
+  - B: record only the retrieval query
+  - C: do not record the first pass separately
+  - comment: approved in chat: full recording behavior
+```
+
+If the engineer answers with something that is not one of the listed options, record it as an edit instead of forcing it into A/B/C. Keep the original options as context, but make the chosen behavior the completed decision-history bullet:
+
+```markdown
+<!-- gantry:item id=gty-trace-recording type=edge status=edit mode=choice -->
+- [x] **edge:** [edit] Record the first-pass response and both retrieval queries, but omit token usage from the trace.
+  - A: record first-pass text, response id, resolved model, usage, and both retrieval queries
+  - B: record only the retrieval query
+  - C: do not record the first pass separately
+  - comment: resolved in chat: custom trace payload, not A/B/C
+```
+
+For non-choice items resolved in chat, the same rule applies: the status badge records the decision (`[accept]`, `[reject]`, or `[edit]`), and any chat wording becomes provenance after the canonical resolved text, not the only record of the decision.
+
 ### Materialize resolved decisions
 
-Normalization preserves what the engineer decided; materialization makes that decision the actual design. After normalizing a resolution batch, rewrite the affected pseudocode so a future reader can implement it without interpreting the annotations:
+Normalization preserves what the engineer decided; materialization makes that decision the actual design. After normalizing a resolution batch, every decision must land in one of two places: the owning pseudocode if it changes the current design, or a completed decision-history bullet if it records why an alternative was rejected, replaced, or left out. A decision that exists only in chat, only in an unchecked/open annotation, or only as "approved in chat" is missing from the Gantry doc.
 
-- **Accept, edit, or choice:** incorporate the approved outcome into the owning step. Replace superseded wording rather than leaving contradictory instructions side by side.
+- **Accept, edit, or choice:** incorporate the approved outcome into the owning step when it changes the current behavior. Replace superseded wording rather than leaving contradictory instructions side by side.
+- **Choice answer outside the listed options:** use `status=edit`, rewrite the item text to the engineer's actual decision, preserve the original A/B/C options under it, and materialize the edited behavior into pseudocode if it is current design.
 - **Accepted ripple or feature:** insert or split out a pseudocode step when the outcome adds distinct work elsewhere. Do not bury a structural addition inside an annotation.
 - **Reject:** leave the pseudocode behavior unchanged, but keep the completed annotation and rejection reason as the decision trail.
 - **AI given edit:** rewrite the given's text to the engineer's version, retain `status=edit`, and keep the comment as provenance.
@@ -435,6 +460,7 @@ The main doc is the design record. *Every* decision must appear there — regard
 
 - Engineer writes in file → already there.
 - Engineer types in chat → AI transcribes into the file.
+- Engineer resolves an annotation in chat → AI rewrites the exact annotation in the file, including marker status, checkbox state, status badge, chosen option or resolved text, and any provenance comment. Chat-only resolution does not satisfy completeness.
 - Engineer changes source code → AI proposes a pseudocode update in the doc, anchored to the affected step. Engineer resolves; pseudocode is rewritten if accepted/edited, left alone if rejected (rejection means "that code change wasn't a design decision").
 - Engineer resolves an annotation or fork → AI rewrites the affected pseudocode and runs stabilization. The completed item remains beneath the canonical step as history.
 
