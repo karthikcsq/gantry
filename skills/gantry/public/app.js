@@ -366,8 +366,200 @@ function renderFreeform() {
   text.value = pseudocodeBody(model.markdown);
   autosize(text);
   text.addEventListener("input", () => autosize(text));
+  text.addEventListener("keydown", handleFreeformListKeydown);
   wrap.append(text);
   return wrap;
+}
+
+function handleFreeformListKeydown(event) {
+  if (event.key === "Enter") {
+    continueFreeformList(event);
+  } else if (event.key === "Tab") {
+    indentFreeformList(event);
+  }
+}
+
+function continueFreeformList(event) {
+  const textarea = event.currentTarget;
+  const lineInfo = currentLine(textarea);
+  const parsed = parseListLine(lineInfo.text);
+  if (!parsed) return;
+
+  event.preventDefault();
+  const nextMarker = nextListMarker(parsed.marker, listStyleForIndent(parsed.indent));
+  insertAtSelection(textarea, `\n${parsed.indent}${nextMarker} `);
+}
+
+function indentFreeformList(event) {
+  const textarea = event.currentTarget;
+  const originalStart = textarea.selectionStart;
+  const originalEnd = textarea.selectionEnd;
+  const selection = selectedLineRange(textarea);
+  const originalText = textarea.value.slice(selection.start, selection.end);
+  const lines = originalText.split("\n");
+  const outdent = event.shiftKey;
+  const counters = new Map();
+  let changed = false;
+
+  const updated = lines.map((lineText) => {
+    const parsed = parseListLine(lineText);
+    const nextLine = parsed
+      ? reindentListLine(parsed, outdent, counters)
+      : reindentPlainLine(lineText, outdent);
+    if (nextLine !== lineText) changed = true;
+    return nextLine;
+  });
+
+  if (!changed) return;
+  event.preventDefault();
+  const nextText = updated.join("\n");
+  replaceRange(textarea, selection.start, selection.end, nextText);
+  if (originalStart === originalEnd) {
+    const delta = nextText.length - originalText.length;
+    const caret = Math.max(selection.start, originalStart + delta);
+    textarea.selectionStart = caret;
+    textarea.selectionEnd = caret;
+  } else {
+    textarea.selectionStart = selection.start;
+    textarea.selectionEnd = selection.start + nextText.length;
+  }
+}
+
+function reindentListLine(parsed, outdent, counters) {
+  const indent = outdent ? parsed.indent.slice(0, Math.max(0, parsed.indent.length - 2)) : `${parsed.indent}  `;
+  const style = listStyleForIndent(indent);
+  const key = `${indent.length}:${style}`;
+  const next = (counters.get(key) ?? 0) + 1;
+  counters.set(key, next);
+  return `${indent}${markerForIndex(next, style)} ${parsed.body}`;
+}
+
+function reindentPlainLine(lineText, outdent) {
+  if (!lineText.trim()) return lineText;
+  if (outdent) return lineText.startsWith("  ") ? lineText.slice(2) : lineText.replace(/^\t/, "");
+  return `  ${lineText}`;
+}
+
+function insertAtSelection(textarea, text) {
+  replaceRange(textarea, textarea.selectionStart, textarea.selectionEnd, text);
+  const caret = textarea.selectionStart;
+  textarea.selectionStart = caret;
+  textarea.selectionEnd = caret;
+}
+
+function replaceRange(textarea, start, end, text) {
+  textarea.setRangeText(text, start, end, "end");
+  autosize(textarea);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function currentLine(textarea) {
+  const value = textarea.value;
+  const start = value.lastIndexOf("\n", textarea.selectionStart - 1) + 1;
+  const nextBreak = value.indexOf("\n", textarea.selectionStart);
+  const end = nextBreak === -1 ? value.length : nextBreak;
+  return { start, end, text: value.slice(start, end) };
+}
+
+function selectedLineRange(textarea) {
+  const value = textarea.value;
+  const start = value.lastIndexOf("\n", textarea.selectionStart - 1) + 1;
+  const nextBreak = value.indexOf("\n", textarea.selectionEnd);
+  const end = nextBreak === -1 ? value.length : nextBreak;
+  return { start, end };
+}
+
+function parseListLine(lineText) {
+  const match = /^(\s*)([0-9]+|[a-z]+|[ivxlcdm]+)[.)]\s+(.*)$/i.exec(lineText);
+  if (!match) return null;
+  return {
+    indent: match[1],
+    marker: match[2],
+    body: match[3],
+  };
+}
+
+function listStyleForIndent(indent) {
+  const level = Math.floor(indent.replace(/\t/g, "  ").length / 2) % 3;
+  return ["number", "alpha", "roman"][level];
+}
+
+function nextListMarker(marker, style) {
+  const current = listIndex(marker, style);
+  return markerForIndex(current + 1, style);
+}
+
+function markerForIndex(index, style) {
+  if (style === "alpha") return `${alphaForIndex(index)}.`;
+  if (style === "roman") return `${romanForIndex(index)}.`;
+  return `${index}.`;
+}
+
+function listIndex(marker, style) {
+  if (style === "alpha") return alphaIndex(marker);
+  if (style === "roman") return romanIndex(marker);
+  const parsed = Number.parseInt(marker, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function alphaForIndex(index) {
+  let value = index;
+  let label = "";
+  while (value > 0) {
+    value -= 1;
+    label = String.fromCharCode(97 + (value % 26)) + label;
+    value = Math.floor(value / 26);
+  }
+  return label || "a";
+}
+
+function alphaIndex(label) {
+  let value = 0;
+  for (const char of label.toLowerCase()) {
+    if (char < "a" || char > "z") return 1;
+    value = value * 26 + (char.charCodeAt(0) - 96);
+  }
+  return value || 1;
+}
+
+function romanForIndex(index) {
+  const numerals = [
+    [1000, "m"],
+    [900, "cm"],
+    [500, "d"],
+    [400, "cd"],
+    [100, "c"],
+    [90, "xc"],
+    [50, "l"],
+    [40, "xl"],
+    [10, "x"],
+    [9, "ix"],
+    [5, "v"],
+    [4, "iv"],
+    [1, "i"],
+  ];
+  let value = Math.max(1, index);
+  let label = "";
+  for (const [amount, numeral] of numerals) {
+    while (value >= amount) {
+      label += numeral;
+      value -= amount;
+    }
+  }
+  return label;
+}
+
+function romanIndex(label) {
+  const values = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+  const chars = label.toLowerCase().split("");
+  let total = 0;
+  for (let i = 0; i < chars.length; i += 1) {
+    const current = values[chars[i]];
+    const next = values[chars[i + 1]] ?? 0;
+    if (!current) return 1;
+    total += current < next ? -current : current;
+  }
+  return total || 1;
 }
 
 // Slice the raw text of the `## Pseudocode` section out of the markdown, dropping
