@@ -64,14 +64,13 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillsSrc = Join-Path $ScriptDir 'skills'
-$SkillNames = @('gantry', 'gantry-mode')
 
-foreach ($skillName in $SkillNames) {
-  $source = Join-Path $SkillsSrc $skillName
-  if (-not (Test-Path -LiteralPath $source)) {
-    Write-Error "skill source not found at $source"
-    exit 1
-  }
+# Discover every skill folder under skills/ so newly added skills are picked up
+# on the next run without editing this list.
+$SkillNames = @(Get-ChildItem -LiteralPath $SkillsSrc -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
+if ($SkillNames.Count -eq 0) {
+  Write-Error "no skill folders found under $SkillsSrc"
+  exit 1
 }
 
 # --- Resolve scope and target roots --------------------------------------

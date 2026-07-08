@@ -14,7 +14,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$SCRIPT_DIR/skills"
-SKILL_NAMES=(gantry gantry-mode)
+
+# Discover every skill folder under skills/ so newly added skills are picked up
+# on the next run without editing this list.
+SKILL_NAMES=()
+for skill_dir in "$SKILLS_SRC"/*/; do
+  [[ -d "$skill_dir" ]] || continue
+  SKILL_NAMES+=("$(basename "$skill_dir")")
+done
 
 SCOPE="user"          # user | project
 PROJECT_PATH=""
@@ -80,12 +87,10 @@ if [[ -n "$AGENTS_PATH" ]]; then
   INSTALL_AGENTS=yes
 fi
 
-for skill_name in "${SKILL_NAMES[@]}"; do
-  if [[ ! -d "$SKILLS_SRC/$skill_name" ]]; then
-    echo "error: skill source not found at $SKILLS_SRC/$skill_name"
-    exit 1
-  fi
-done
+if [[ ${#SKILL_NAMES[@]} -eq 0 ]]; then
+  echo "error: no skill folders found under $SKILLS_SRC"
+  exit 1
+fi
 
 path_from_windows_env() {
   local win_path="$1"
