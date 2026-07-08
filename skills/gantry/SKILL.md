@@ -1,6 +1,7 @@
 ---
 name: gantry
 description: Collaborative pseudocode authorship workflow. Engineer writes detailed pseudocode, or explicitly asks AI to draft proposed pseudocode; AI surfaces references, substantive edge cases, useful feature additions, and structural ripples; engineer explicitly approves; AI translates to body. Also handles drift-check on existing gantry docs and rebuild mode for existing code. Use when authoring a new function/feature, returning to extend an existing gantry doc, or auditing your mental model of existing code.
+argument-hint: "[slug] [source-file-or-symbol] | help"
 ---
 
 # gantry
@@ -44,7 +45,9 @@ Valid levels:
 - **`collaborative`** — Use the balanced workflow described in this skill: enough context to make decisions confidently without turning each annotation into a lesson. This is the default.
 - **`concise`** — Assume fluency, preserve terse engineer-authored wording, and include only the context needed to resolve material decisions. Do not omit a substantive decision merely to stay brief.
 
-An engineer may change the active task's level at any time by asking Gantry directly; update the sidecar and apply the new style immediately. They may also run `/gantry-mode <level> <slug>` for the same immediate change. `/gantry-mode <level>` without a slug configures the user-level default for future tasks.
+**Guidance shapes the doc, not the chat.** Each level controls how much explanation lands in the durable artifact — the plain-language text of a given, the rationale trailing a choice item or fork, the "why it matters" appended to a surfaced decision (as trailing content on the item line, never a comment — see [Presenting is not resolving](#presenting-is-not-resolving)). `guided` means `.gantry/<slug>.md` carries more teaching; it does **not** mean narrating the design back in chat. The engineer reads and resolves in the editor, so the explanation has to live in the doc where it lasts, not in a chat turn that scrolls away. `concise` likewise trims the in-doc explanation; it never moves a decision out of the doc to save space.
+
+An engineer may change the active task's level at any time by asking Gantry directly, or by running `/gantry-mode <level> <slug>`. Applying a new level means: update the sidecar, then re-render the doc's unresolved givens, forks, and open items in the new style — deepening or trimming their in-doc explanation. It does **not** mean re-walking the existing design in chat. After a switch, keep the chat turn to a short pointer (e.g. "raised to guided — expanded the rationale on the open decisions; resolve them in the editor"). `/gantry-mode <level>` without a slug configures the user-level default for future tasks.
 
 **Invariant across every level:** keep the same annotation bar, active approval gate, completeness principle, and prohibition on unapproved design decisions. Guidance controls explanation and chunking—not safety, scope, or who approves.
 

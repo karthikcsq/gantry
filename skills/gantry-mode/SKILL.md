@@ -1,6 +1,7 @@
 ---
 name: gantry-mode
 description: Configure Gantry guidance globally or for an active task. Use when the engineer invokes /gantry-mode, asks to change guidance mid-session, or wants guided, collaborative, or concise Gantry interactions.
+argument-hint: "[guided|collaborative|concise|reset] [slug]"
 ---
 
 # gantry-mode
@@ -19,7 +20,7 @@ Accept a mode and an optional Gantry slug:
 
 - no argument — report the current default and list the three valid levels.
 - `guided`, `collaborative`, or `concise` — set the user-level default for future tasks.
-- `<mode> <slug>` — update `.gantry/<slug>.diff.md` and apply the level to that task immediately without changing the default.
+- `<mode> <slug>` — update `.gantry/<slug>.diff.md` and apply the level to that task immediately without changing the default. Applying a level to an active task means re-rendering the doc's unresolved givens, forks, and open items in the new style inside `.gantry/<slug>.md`; it does **not** mean re-explaining the existing design in chat. Keep the chat reply to the script's confirmation plus a one-line pointer to what changed in the editor.
 - `reset` — remove the global override and return the default to `collaborative`.
 - `reset <slug>` — set that task to the current global default.
 
@@ -31,7 +32,9 @@ The script preserves unrelated global configuration keys and sidecar frontmatter
 
 ## Output
 
-Keep responses short:
+Keep responses short. Every script call — status, a default change, a task change, or a reset — lists the three available modes so the engineer always sees the choices. Relay that verbatim; do not restate or re-describe the modes yourself.
+
+Status call:
 
 ```text
 Gantry guidance: collaborative
@@ -41,4 +44,14 @@ collaborative — balanced pairing (default)
 concise — terse, fluency-assuming context
 ```
 
-The script reports the exact config path after a write.
+A write additionally reports the exact config or sidecar path and appends the same `Available modes:` block:
+
+```text
+Gantry guidance set to guided for future tasks.
+Config: /home/you/.gantry/config.json
+
+Available modes:
+guided — more teaching and smaller steps
+collaborative — balanced pairing (default)
+concise — terse, fluency-assuming context
+```

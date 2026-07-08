@@ -6,6 +6,14 @@ import path from "node:path";
 
 const VALID_LEVELS = new Set(["guided", "collaborative", "concise"]);
 
+const MODE_HINT = `guided — more teaching and smaller steps
+collaborative — balanced pairing (default)
+concise — terse, fluency-assuming context`;
+
+function withModes(message) {
+  return `${message}\n\nAvailable modes:\n${MODE_HINT}`;
+}
+
 function parseArgs(argv) {
   let home = os.homedir();
   let root = process.cwd();
@@ -59,9 +67,7 @@ function status(config) {
 
   return `Gantry guidance: ${effective}${invalid}
 
-guided — more teaching and smaller steps
-collaborative — balanced pairing (default)
-concise — terse, fluency-assuming context`;
+${MODE_HINT}`;
 }
 
 function writeConfig(configPath, config) {
@@ -125,13 +131,13 @@ function main() {
     if (slug) {
       const fallback = VALID_LEVELS.has(config.guidance) ? config.guidance : "collaborative";
       const sidecarPath = writeSidecarGuidance(root, slug, fallback);
-      console.log(`Gantry task "${slug}" reset to ${fallback}.\nSidecar: ${sidecarPath}`);
+      console.log(withModes(`Gantry task "${slug}" reset to ${fallback}.\nSidecar: ${sidecarPath}`));
       return;
     }
 
     delete config.guidance;
     writeConfig(configPath, config);
-    console.log(`Gantry guidance reset to collaborative.\nConfig: ${configPath}`);
+    console.log(withModes(`Gantry guidance reset to collaborative.\nConfig: ${configPath}`));
     return;
   }
 
@@ -141,13 +147,13 @@ function main() {
 
   if (slug) {
     const sidecarPath = writeSidecarGuidance(root, slug, mode);
-    console.log(`Gantry task "${slug}" set to ${mode} immediately.\nSidecar: ${sidecarPath}`);
+    console.log(withModes(`Gantry task "${slug}" set to ${mode} immediately.\nSidecar: ${sidecarPath}`));
     return;
   }
 
   config.guidance = mode;
   writeConfig(configPath, config);
-  console.log(`Gantry guidance set to ${mode} for future tasks.\nConfig: ${configPath}`);
+  console.log(withModes(`Gantry guidance set to ${mode} for future tasks.\nConfig: ${configPath}`));
 }
 
 try {
