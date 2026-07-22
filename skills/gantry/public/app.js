@@ -12,6 +12,10 @@ const tabNameEl = document.querySelector("#tab-name");
 
 let model = null;
 let slug = new URLSearchParams(location.search).get("slug") ?? "";
+let savedMarkdown = null;
+let isDirty = false;
+let isSaving = false;
+let isCheckingForExternalUpdate = false;
 // Gate items grouped by the step they annotate, rebuilt each render so the
 // approval renderer can attach them inline (deep path-nested steps included).
 let stepItemIndex = new Map();
@@ -32,6 +36,7 @@ slugForm.addEventListener("submit", async (event) => {
 
 saveButton.addEventListener("click", save);
 lintButton.addEventListener("click", () => checkGate(true));
+bufferEl.addEventListener("input", markDirty);
 
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
@@ -42,6 +47,9 @@ document.addEventListener("keydown", (event) => {
 
 window.addEventListener("scroll", updateActiveStep, { passive: true });
 window.addEventListener("resize", buildOverview);
+// Agents often update the markdown directly while the engineer has the editor
+// open. Poll the local server so that work appears without a tab refresh.
+setInterval(refreshFromDisk, 1_000);
 
 async function openSlug(nextSlug) {
   setStatus("loading", "");
@@ -56,9 +64,40 @@ async function openSlug(nextSlug) {
 
   slug = nextSlug;
   model = data;
+  savedMarkdown = data.markdown;
+  isDirty = false;
   indexModel(model);
   render();
   summarizeLint(data.lint);
+}
+
+function markDirty() {
+  if (!model) return;
+  isDirty = true;
+  setStatus("unsaved changes", "");
+}
+
+async function refreshFromDisk() {
+  if (!slug || !model || isDirty || isSaving || isCheckingForExternalUpdate) return;
+
+  isCheckingForExternalUpdate = true;
+  try {
+    const response = await fetch(`/api/doc?slug=${encodeURIComponent(slug)}`);
+    const data = await response.json();
+    if (!response.ok || !data.ok || data.markdown === savedMarkdown) return;
+
+    model = data;
+    savedMarkdown = data.markdown;
+    indexModel(model);
+    render();
+    summarizeLint(data.lint);
+    setStatus("reloaded external changes", "ok");
+  } catch {
+    // A temporary local-server interruption should not overwrite the editor's
+    // current state or turn into persistent error noise.
+  } finally {
+    isCheckingForExternalUpdate = false;
+  }
 }
 
 // Rebuild the flat AI-step/fork lists from the block tree so every list shares
@@ -89,23 +128,32 @@ function indexModel(target) {
 
 async function save() {
   if (!model) return;
+  isSaving = true;
   setStatus("saving", "");
-  const response = await fetch("/api/doc", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(collectUpdates()),
-  });
-  const data = await response.json();
-  if (!response.ok || !data.ok) {
-    const detail = data.errors?.map((error) => `${error.line}: ${error.message}`).join("; ");
-    setStatus(detail || data.error || "save failed", "error");
-    return;
-  }
+  try {
+    const response = await fetch("/api/doc", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(collectUpdates()),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      const detail = data.errors?.map((error) => `${error.line}: ${error.message}`).join("; ");
+      setStatus(detail || data.error || "save failed", "error");
+      return;
+    }
 
-  model = { slug, ...data.doc };
-  indexModel(model);
-  render();
-  setStatus("saved", "ok");
+    model = { slug, ...data.doc };
+    savedMarkdown = model.markdown;
+    isDirty = false;
+    indexModel(model);
+    render();
+    setStatus("saved", "ok");
+  } catch {
+    setStatus("save failed", "error");
+  } finally {
+    isSaving = false;
+  }
 }
 
 async function checkGate(showSuccess) {
@@ -645,6 +693,7 @@ function renderStepRun(run, startNumber) {
     for (const step of run) {
       if (effectiveStepStatus(step) === "open") step.status = "accept";
     }
+    markDirty();
     render();
   });
   head.append(approveAll);
@@ -770,6 +819,7 @@ function stepStatusButton(nextStatus, step) {
   button.classList.toggle("active", nextStatus === effectiveStepStatus(step));
   button.addEventListener("click", () => {
     step.status = step.status === nextStatus ? "open" : nextStatus;
+    markDirty();
     render();
   });
   return button;
@@ -823,6 +873,7 @@ function renderForkBlock(fork, depth = 0) {
         rejectBranch(path);
       }
     }
+    markDirty();
     render();
   });
   head.append(drop);
@@ -957,6 +1008,7 @@ function choosePath(fork, path, action) {
     const picked = fork.paths.find((candidate) => candidate.status === "pick");
     fork.status = picked ? picked.id : "open";
   }
+  markDirty();
   render();
 }
 
@@ -1127,6 +1179,7 @@ function setItemStatus(button, nextStatus) {
   row.querySelectorAll("button[data-status]").forEach((candidate) => {
     candidate.classList.toggle("active", !deselect && candidate === button);
   });
+  markDirty();
   renderGate();
 }
 

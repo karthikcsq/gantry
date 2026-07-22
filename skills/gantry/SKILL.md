@@ -112,7 +112,7 @@ When running from this repository, the shorter form is:
 node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug>
 ```
 
-**The skill launches this for the engineer — don't make them run it.** When the workflow reaches the drafting/editing surface, Claude/Codex starts the server itself, in the background (it is a long-lived process — launch it non-blocking so the conversation continues). On launch the server **opens the editor in the engineer's default browser automatically** and also prints the `http://127.0.0.1:<port>/` URL as a fallback. Pass `--no-open` only to suppress that (e.g. tests). Save through the UI; if saving fails, the UI shows the server error and the markdown file is not updated.
+**The skill launches this for the engineer — don't make them run it.** When the workflow reaches the drafting/editing surface, Claude/Codex starts the server itself, in the background (it is a long-lived process — launch it non-blocking so the conversation continues). On launch the server **opens the editor in the engineer's default browser automatically** and also prints the `http://127.0.0.1:<port>/` URL as a fallback. Pass `--no-open` only to suppress that (e.g. tests). The editor checks the underlying markdown once a second and re-renders external changes automatically; it pauses that check while the browser has unsaved edits. Save through the UI; if saving fails, the UI shows the server error and the markdown file is not updated.
 
 Lint the Gantry markdown format:
 
