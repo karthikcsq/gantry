@@ -158,7 +158,7 @@ async function save() {
 
 async function checkGate(showSuccess) {
   if (!slug) return;
-  const response = await fetch(`/api/lint?gate=1&slug=${encodeURIComponent(slug)}`);
+  const response = await fetch(`/api/lint?review=1&slug=${encodeURIComponent(slug)}`);
   const data = await response.json();
   if (!response.ok || !data.ok) {
     // No red error spam in the bar — the white box + scroll to the first open
@@ -166,7 +166,7 @@ async function checkGate(showSuccess) {
     setStatus("", "");
     revealFirstOpen();
   } else if (showSuccess) {
-    setStatus("gate clear", "ok");
+    setStatus("review clear", "ok");
   }
 }
 
@@ -744,6 +744,10 @@ function renderReviewStep(step, number) {
   autosize(text);
   text.addEventListener("input", () => {
     autosize(text);
+    if (ai && step.status === "open" && text.value !== withoutNumber(step.text)) {
+      step.status = "edit";
+      block.dataset.status = step.status;
+    }
     step.text = text.value;
   });
   stepLine.append(text);
@@ -760,6 +764,8 @@ function renderReviewStep(step, number) {
     comments.addEventListener("input", () => {
       autosize(comments);
       step.comments = comments.value.split("\n").map((line) => line.trim()).filter(Boolean);
+      if (step.status === "open" && step.comments.length > 0) step.status = "edit";
+      if (step.status === "edit" && step.comments.length === 0) step.status = "open";
       // Update state in place — re-rendering would steal focus mid-type.
       const effective = effectiveStepStatus(step);
       block.dataset.status = effective;
@@ -781,8 +787,8 @@ function renderReviewStep(step, number) {
 // the pseudocode that should be implemented now.
 function appendStepItems(block, step) {
   const items = stepItemIndex.get(step.id) ?? [];
-  const open = items.filter((item) => effectiveStatus(item) === "open");
-  const resolved = items.filter((item) => effectiveStatus(item) !== "open");
+  const open = items.filter(isUnresolvedItem);
+  const resolved = items.filter((item) => !isUnresolvedItem(item));
 
   for (const item of open) block.append(renderItem(item));
   if (resolved.length === 0) return;
@@ -801,11 +807,8 @@ function appendStepItems(block, step) {
   block.append(history);
 }
 
-// Mirrors effectiveStatus for items: accept/reject win; otherwise a non-empty
-// comment is a proposed edit; otherwise the step is still open.
 function effectiveStepStatus(step) {
-  if (step.status === "accept" || step.status === "reject") return step.status;
-  return (step.comments ?? []).some((comment) => comment.trim().length > 0) ? "edit" : "open";
+  return step.status;
 }
 
 function stepStatusButton(nextStatus, step) {
@@ -817,6 +820,7 @@ function stepStatusButton(nextStatus, step) {
   button.title = nextStatus === "accept" ? "Approve" : "Reject";
   button.setAttribute("aria-label", button.title);
   button.classList.toggle("active", nextStatus === effectiveStepStatus(step));
+  button.disabled = step.status === "edit";
   button.addEventListener("click", () => {
     step.status = step.status === nextStatus ? "open" : nextStatus;
     markDirty();
@@ -1068,10 +1072,11 @@ function renderItem(item) {
 
   const controls = document.createElement("div");
   controls.className = "controls";
+  const inProgress = item.status === "edit";
   if (item.mode === "choice") {
-    for (const choice of item.choices) controls.append(choiceButton(choice, item.status));
+    for (const choice of item.choices) controls.append(choiceButton(choice, item.status, inProgress));
   } else {
-    controls.append(statusButton("accept", item.status), statusButton("reject", item.status));
+    controls.append(statusButton("accept", item.status, inProgress), statusButton("reject", item.status, inProgress));
   }
   head.append(controls);
 
@@ -1085,7 +1090,13 @@ function renderItem(item) {
   text.setAttribute("aria-label", `${item.type} gate`);
   text.value = item.text;
   autosize(text);
-  text.addEventListener("input", () => autosize(text));
+  text.addEventListener("input", () => {
+    autosize(text);
+    if (item.status === "open" && text.value !== item.text) {
+      item.status = "edit";
+      applyItemState(row, item);
+    }
+  });
   head.append(text);
 
   if (item.mode === "choice") {
@@ -1100,13 +1111,15 @@ function renderItem(item) {
   const comments = document.createElement("textarea");
   comments.className = "comments";
   comments.dataset.field = "comments";
-  comments.setAttribute("aria-label", "Gate comments");
+  comments.setAttribute("aria-label", "Gate comments; comments on an open item begin model reconciliation");
   comments.placeholder = "Add a comment or proposed edit…";
   comments.value = (item.comments ?? []).join("\n");
   autosize(comments);
   comments.addEventListener("input", () => {
     autosize(comments);
     item.comments = comments.value.split("\n").map((comment) => comment.trim()).filter(Boolean);
+    if (item.status === "open" && item.comments.length > 0) item.status = "edit";
+    if (item.status === "edit" && item.comments.length === 0) item.status = "open";
     applyItemState(row, item);
     renderGate();
   });
@@ -1116,9 +1129,6 @@ function renderItem(item) {
   return row;
 }
 
-// A gate is open only when it is neither accepted/rejected nor carries a
-// proposed edit. A non-empty comment on an open gate is a proposed edit, so it
-// resolves to the "edit" state. accept/reject/choice from the buttons win.
 function applyItemState(row, item) {
   const effective = effectiveStatus(item);
   row.dataset.status = effective;
@@ -1126,21 +1136,14 @@ function applyItemState(row, item) {
 }
 
 function effectiveStatus(item) {
-  if (item.status === "accept" || item.status === "reject" || item.status === "edit") {
-    return item.status;
-  }
-  if (item.status.startsWith("choice-")) return item.status;
-  // While the engineer is typing, a comment on an open item is a proposed edit.
-  // After AI normalization, status=edit is durable even when the final wording
-  // lives in the annotation text and no separate comment remains.
-  return hasProposedEdit(item) ? "edit" : "open";
+  return item.status;
 }
 
-function hasProposedEdit(item) {
-  return (item.comments ?? []).some((comment) => comment.trim().length > 0);
+function isUnresolvedItem(item) {
+  return ["open", "edit"].includes(effectiveStatus(item));
 }
 
-function statusButton(nextStatus, current) {
+function statusButton(nextStatus, current, disabled = false) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `decision ${nextStatus}`;
@@ -1149,11 +1152,12 @@ function statusButton(nextStatus, current) {
   button.title = nextStatus === "accept" ? "Approve" : "Reject";
   button.setAttribute("aria-label", button.title);
   button.classList.toggle("active", nextStatus === current);
+  button.disabled = disabled;
   button.addEventListener("click", () => setItemStatus(button, nextStatus));
   return button;
 }
 
-function choiceButton(choice, current) {
+function choiceButton(choice, current, disabled = false) {
   const nextStatus = `choice-${choice.key.toLowerCase()}`;
   const button = document.createElement("button");
   button.type = "button";
@@ -1163,6 +1167,7 @@ function choiceButton(choice, current) {
   button.title = `Choose ${choice.key}`;
   button.setAttribute("aria-label", button.title);
   button.classList.toggle("active", nextStatus === current);
+  button.disabled = disabled;
   button.addEventListener("click", () => setItemStatus(button, nextStatus));
   return button;
 }
@@ -1188,11 +1193,16 @@ function renderGate() {
     gateFillEl.style.width = "0%";
     return;
   }
-  const stats = modelStats();
-  const ratio = stats.total === 0 ? 1 : stats.resolved / stats.total;
+  const reviewer = reviewerStats();
+  const modelWork = modelStats();
+  const ratio = reviewer.total === 0 ? 1 : reviewer.resolved / reviewer.total;
   gateFillEl.style.width = `${Math.round(ratio * 100)}%`;
-  gateLabelEl.textContent = stats.open === 0 ? "gate clear" : `${stats.open} open`;
-  gateFillEl.style.background = stats.open === 0 ? "var(--green)" : "var(--orange)";
+  gateLabelEl.textContent = reviewer.open === 0
+    ? modelWork.open === 0
+      ? "review clear"
+      : "review clear · model pass needed"
+    : `${reviewer.open} to review`;
+  gateFillEl.style.background = reviewer.open === 0 ? "var(--green)" : "var(--orange)";
   buildOverview();
 }
 
@@ -1245,16 +1255,19 @@ function collectUpdates() {
         forkId: fork.id,
       })),
     ),
-    items: [...document.querySelectorAll(".gate-line")].map((itemEl) => ({
-      id: itemEl.dataset.itemId,
-      text: itemEl.querySelector('[data-field="item-text"]').value,
-      status: itemEl.dataset.status,
-      comments: itemEl
+    items: [...document.querySelectorAll(".gate-line")].map((itemEl) => {
+      const item = model.items.find((candidate) => candidate.id === itemEl.dataset.itemId);
+      return {
+        id: itemEl.dataset.itemId,
+        text: itemEl.querySelector('[data-field="item-text"]').value,
+        status: itemEl.dataset.status,
+        comments: itemEl
         .querySelector('[data-field="comments"]')
         .value.split("\n")
         .map((comment) => comment.replace(/^\s*-\s*comment:\s*/, "").trim())
         .filter(Boolean),
-    })),
+      };
+    }),
   };
 }
 
@@ -1280,12 +1293,27 @@ function modelStats() {
   // count as resolved, matching the server gate. (Counts in total, not in open.)
   const { pathById, forkById } = pathLookup(model);
   const live = (node) => !underRejectedPath(node, pathById, forkById);
+  const openItems = model.items.filter(isUnresolvedItem).length;
+  const openSteps = aiSteps.filter(
+    (step) => live(step) && ["open", "edit"].includes(effectiveStepStatus(step)),
+  ).length;
+  const openForks = forks.filter((fork) => live(fork) && effectiveForkStatus(fork) === "open").length;
+  const open = openItems + openSteps + openForks;
+  const total = model.items.length + aiSteps.length + forks.length;
+  return { steps: model.steps.length, total, resolved: total - open, open };
+}
+
+function reviewerStats() {
+  const aiSteps = model.aiSteps ?? [];
+  const forks = model.forks ?? [];
+  const { pathById, forkById } = pathLookup(model);
+  const live = (node) => !underRejectedPath(node, pathById, forkById);
   const openItems = model.items.filter((item) => effectiveStatus(item) === "open").length;
   const openSteps = aiSteps.filter((step) => live(step) && effectiveStepStatus(step) === "open").length;
   const openForks = forks.filter((fork) => live(fork) && effectiveForkStatus(fork) === "open").length;
   const open = openItems + openSteps + openForks;
   const total = model.items.length + aiSteps.length + forks.length;
-  return { steps: model.steps.length, total, resolved: total - open, open };
+  return { total, resolved: total - open, open };
 }
 
 // Index every path and fork by id so a node's ancestry can be walked. Mirrors the

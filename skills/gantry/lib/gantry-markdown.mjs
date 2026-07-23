@@ -403,6 +403,9 @@ export function lintGantryMarkdown(markdown, options = {}) {
     // A step or fork left under a rejected path is moot — the engineer dropped that
     // branch, so its leftover marker (which serialization keeps as-is) must not trip
     // the gate. Resolve ancestry once and skip anything beneath a dropped path.
+  }
+
+  if (options.gate || options.review || options.model) {
     const pathById = new Map();
     const forkById = new Map();
     for (const fork of parsed.forks) {
@@ -411,11 +414,18 @@ export function lintGantryMarkdown(markdown, options = {}) {
     }
     const live = (node) => !underRejectedPath(node, pathById, forkById);
 
-    for (const item of parsed.items.filter((item) => item.status === "open")) {
-      errors.push(issue("unresolved-gate", item.itemLine, `Unresolved ${item.type} item blocks code writing.`));
+    const gateTarget = options.gate
+      ? "code writing"
+      : options.model
+      ? "model reconciliation"
+      : "review readiness";
+    const unresolvedItemStatuses = options.review ? ["open"] : ["open", "edit"];
+    for (const item of parsed.items.filter((item) => unresolvedItemStatuses.includes(item.status))) {
+      errors.push(issue("unresolved-gate", item.itemLine, `Unresolved ${item.type} item blocks ${gateTarget}.`));
     }
-    for (const step of parsed.aiSteps.filter((step) => step.status === "open" && live(step))) {
-      errors.push(issue("unresolved-step", step.markerLine, "Unresolved AI step blocks code writing."));
+    const unresolvedStepStatuses = options.review ? ["open"] : ["open", "edit"];
+    for (const step of parsed.aiSteps.filter((step) => unresolvedStepStatuses.includes(step.status) && live(step))) {
+      errors.push(issue("unresolved-step", step.markerLine, `Unresolved AI step blocks ${gateTarget}.`));
     }
     for (const fork of parsed.forks.filter((fork) => fork.status === "open" && live(fork))) {
       errors.push(issue("unresolved-fork", fork.markerLine, "Unresolved fork blocks code writing — pick a path or drop it."));

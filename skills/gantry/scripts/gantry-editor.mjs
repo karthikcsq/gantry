@@ -22,7 +22,7 @@ const root = path.resolve(args.root ?? process.cwd());
 if (command === "serve") {
   serve({ root, slug: args.slug, port: Number(args.port ?? 0), open: !args["no-open"] });
 } else if (command === "lint") {
-  await lint({ root, slug: args.slug, gate: Boolean(args.gate) });
+  await lint({ root, slug: args.slug, gate: Boolean(args.gate), review: Boolean(args.review), model: Boolean(args.model) });
 } else if (command === "ids") {
   await addIds({ root, slug: args.slug });
 } else {
@@ -75,7 +75,11 @@ async function serve({ root, slug, port, open = true }) {
       }
       if (url.pathname === "/api/lint" && req.method === "GET") {
         const markdown = await readMarkdown(root, url.searchParams.get("slug") ?? slug);
-        const result = lintGantryMarkdown(markdown, { gate: url.searchParams.get("gate") === "1" });
+        const result = lintGantryMarkdown(markdown, {
+          gate: url.searchParams.get("gate") === "1",
+          review: url.searchParams.get("review") === "1",
+          model: url.searchParams.get("model") === "1",
+        });
         sendJson(res, { ok: result.ok, errors: result.errors });
         return;
       }
@@ -113,10 +117,10 @@ function openBrowser(url) {
   }
 }
 
-async function lint({ root, slug, gate }) {
+async function lint({ root, slug, gate, review, model }) {
   if (!slug) throw new Error("lint requires --slug <name>");
   const markdown = await readMarkdown(root, slug);
-  const result = lintGantryMarkdown(markdown, { gate });
+  const result = lintGantryMarkdown(markdown, { gate, review, model });
   for (const error of result.errors) {
     console.error(`${error.line}: ${error.code}: ${error.message}`);
   }
@@ -225,6 +229,6 @@ function parseArgs(argv) {
 function usage() {
   console.error(`Usage:
   node skills/gantry/scripts/gantry-editor.mjs serve --slug <slug> [--port 8787] [--root <repo>] [--no-open]
-  node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug> [--gate] [--root <repo>]
+  node skills/gantry/scripts/gantry-editor.mjs lint --slug <slug> [--review|--model|--gate] [--root <repo>]
   node skills/gantry/scripts/gantry-editor.mjs ids --slug <slug> [--root <repo>]`);
 }

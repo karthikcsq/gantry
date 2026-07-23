@@ -156,7 +156,7 @@ Choice items use `mode=choice` and options A/B/C:
   - comment: empty query should fail loudly
 ```
 
-Valid item types are `ref`, `edge`, `feat`, `ripple`, `update`, and `mismatch`. Valid statuses are `open`, `accept`, `reject`, `edit`, `choice-a`, `choice-b`, and `choice-c`. `open` items still block code writing.
+Valid item types are `ref`, `edge`, `feat`, `ripple`, `update`, and `mismatch`. Valid statuses are `open`, `accept`, `reject`, `edit`, `choice-a`, `choice-b`, and `choice-c`.
 
 **When a question has distinct alternatives, write them out as a choice item.** Spell each alternative as an option (A, B, C) so the engineer answers by picking one, not by typing a comment. A question phrased "should it be X or Y?" is a two-option choice item, not a `mode=decision` item — the same goes for a fork, where each path is a named alternative. Reserve `mode=decision` (free-text comment) for genuinely open-ended questions that have no enumerable options. For example, "Should login show a retry error, or recreate the missing auth identity before sending OTP?" is a choice: `A: show a retry error` / `B: recreate the identity, then send OTP`.
 
@@ -164,7 +164,11 @@ Valid item types are `ref`, `edge`, `feat`, `ripple`, `update`, and `mismatch`. 
 
 Surfacing an item, choice, given, or fork **never** carries your own comment, edit, or status. Leave everything you present unresolved: `status=open` (or `mode=choice` with no chosen option), the checkbox unchecked, and **no `- comment:` line**.
 
-This is a hard mechanical constraint, not a style preference. The editor derives status from comment presence: a non-empty comment on any open item, given, or fork resolves it to `edit` and collapses it into decision history (that's how the UI works — see `app.js` `effectiveStatus`/`hasProposedEdit`). So an AI-written comment silently marks the decision "done" and hides it before the engineer has touched it — the exact rubber-stamp collapse gantry exists to prevent. A comment is an engineer resolution record; you write one only after they decide, to capture what they chose (see [Resolution](#resolution)).
+This is a hard mechanical constraint, not a style preference. **Before an item has been accepted, rejected, or chosen, a comment or direct edit makes it `status=edit`.** Here, `edit` means the engineer has reviewed the current proposal and the model still owes a reconciliation pass; it does not mean the edit is resolved or approved.
+
+There are two readiness checks. The **reviewer gate** clears when every current AI proposal is accepted, rejected, or chosen; it ignores `edit` feedback because the engineer has already reviewed it. The **model gate** also requires zero `edit` entries: the model must first turn each one into a new `author=ai status=open` pseudocode step under the affected flow. That new proposal then blocks the reviewer gate until the engineer explicitly resolves it. The code-writing gate requires both gates plus the workflow marker. Use `lint --review` for reviewer readiness, `lint --model` for model readiness, and `lint --gate` before code writing.
+
+Do not treat "ELI20, don't get it" as an approval or apply the default. Explain the current choice plainly, keep its feedback `edit`, and leave the new proposed pseudocode step open until the engineer accepts, rejects, or edits it. Once an item is explicitly settled, later comments are history unless the engineer explicitly asks to revisit that decision.
 
 **Put your recommendation, rationale, or default at the end of the item's content — never in an option's wording and never in a comment.** Keep each option a clean, neutral statement of that alternative; append your steer as a trailing sentence on the item/question line itself. For the empty-query choice above, the options stay `A: return all vendors` / `B: return no vendors` / `C: throw validation error`, and the question line ends with `default: B — matches the empty-result contract callers already expect`. When you also raise these as a chat question (e.g. AskUserQuestion), the same holds: the recommendation trails the content, the options stay neutral, and the doc item stays open and comment-free until the engineer answers.
 
@@ -175,6 +179,8 @@ Annotation items are for the **annotation pass** (after the engineer's design is
 When AI drafts pseudocode, it does **not** mark every line as a "proposed step." It classifies each line into one of two kinds:
 
 A **given** is settled pseudocode — a line with a clear default and no real alternative. It carries provenance (`author`) and resolves with the **same vocabulary as an annotation item** — accept, reject, or edit — never "proposed:" prose. When you draft a given, it is `status=open` with the text on the line after the marker and **no comment** ([Presenting is not resolving](#presenting-is-not-resolving)). A `- comment:` line is what the *engineer* adds to propose an edit; because the editor reads any comment as an edit, a given that carries one is already resolved (`status=edit`), not open:
+
+For avoidance of doubt, a comment on an unapproved given means `edit`; the model must reconcile it into a new open proposal before it can be approved.
 
 ```markdown
 <!-- gantry:step id=gty-cc-normalize author=ai status=open -->
@@ -407,6 +413,8 @@ If the engineer answers with something that is not one of the listed options, re
 For non-choice items resolved in chat, the same rule applies: the status badge records the decision (`[accept]`, `[reject]`, or `[edit]`), and any chat wording becomes provenance after the canonical resolved text, not the only record of the decision.
 
 ### Materialize resolved decisions
+
+**Preserve every resolved decision.** Reword each completed history item so it stands on its own: name the decision, its outcome, and the reason when useful. A reader must understand it without rereading the owning pseudocode step or the surrounding chat. Never delete or overwrite a completed decision while reconciling later feedback; add the new proposal separately. `edit` never belongs in completed history: after reconciliation, write the prior outcome as `accept`, `reject`, or a selected choice, then keep the new AI proposal open.
 
 Normalization preserves what the engineer decided; materialization makes that decision the actual design. After normalizing a resolution batch, every decision must land in one of two places: the owning pseudocode if it changes the current design, or a completed decision-history bullet attached to the related pseudocode step if it records why an alternative was rejected, replaced, or left out. A decision that exists only in chat, only in an unchecked/open annotation, only as "approved in chat", or only in a detached bottom section is missing from the Gantry doc.
 

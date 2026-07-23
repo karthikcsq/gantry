@@ -401,6 +401,27 @@ test("materializes a resolution into the canonical step without deleting its dec
   ), false);
 });
 
+test("edit feedback clears reviewer readiness but blocks model readiness", () => {
+  const parsed = parseGantryMarkdown(validMarkdown);
+  const next = serializeGantryMarkdown(parsed, {
+    items: [{
+      id: "gty-ref-query",
+      status: "edit",
+      comments: ["ELI20, don't get it"],
+    }],
+  });
+
+  const reparsed = parseGantryMarkdown(next);
+  const item = reparsed.items.find((candidate) => candidate.id === "gty-ref-query");
+  assert.equal(item.status, "edit");
+  assert.deepEqual(item.comments, ["ELI20, don't get it"]);
+  assert.match(next, /status=edit mode=decision/);
+  assert.equal(lintGantryMarkdown(next, { review: true }).ok, true);
+  assert(lintGantryMarkdown(next, { model: true }).errors.some(
+    (error) => error.code === "unresolved-gate" && error.line === item.itemLine + 1,
+  ));
+});
+
 test("freeform drafting replaces the Pseudocode body verbatim", () => {
   const parsed = parseGantryMarkdown(emptyScaffold);
   const next = serializeGantryMarkdown(parsed, {
